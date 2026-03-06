@@ -7,7 +7,7 @@
 <style>
 :root{--primary:#e07c4f;--primary-light:#f4a77a;--primary-dark:#b85a30;--bg:#faf6f1;--card:#ffffff;--text:#3a3a3a;--text-light:#888;--border:#e8e0d8;--tag-bg:#fef3ec;--tag-text:#c06030;--success:#5ba85b;--danger:#d9534f;--shadow:0 2px 8px rgba(0,0,0,.08);--radius:10px;}
 *{margin:0;padding:0;box-sizing:border-box;}
-body{font-family:-apple-system,'Microsoft JhengHei','Segoe UI',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
+body{font-family:-apple-system,'Microsoft JhengHei','Segoe UI',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden;}
 
 /* NAV */
 nav{background:var(--primary);color:#fff;padding:0 16px;display:flex;align-items:center;height:56px;position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,.15);}
@@ -20,7 +20,7 @@ nav .tabs button.active,nav .tabs button:hover{background:rgba(255,255,255,.2);c
 .sync-off{background:rgba(255,0,0,.3);color:#fff;}
 
 /* PAGES */
-.page{display:none;padding:20px;max-width:1200px;margin:0 auto;}
+.page{display:none;padding:20px;max-width:1200px;margin:0 auto;overflow-x:hidden;}
 .page.active{display:block;}
 
 /* BUTTONS */
@@ -88,7 +88,7 @@ nav .tabs button.active,nav .tabs button:hover{background:rgba(255,255,255,.2);c
 .week-nav span{font-size:16px;font-weight:600;min-width:280px;text-align:center;}
 .week-label-row{font-size:14px;font-weight:700;color:var(--primary);margin:16px 0 8px;padding:6px 0;border-bottom:2px solid var(--primary-light);}
 .week-label-row:first-child{margin-top:0;}
-.week-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:10px;margin-bottom:8px;}
+.week-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:10px;margin-bottom:8px;touch-action:pan-y;}
 @media(max-width:1000px){.week-grid{grid-template-columns:repeat(4,1fr);}}
 @media(max-width:600px){.week-grid{grid-template-columns:repeat(2,1fr);}}
 .day-col{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);min-height:200px;display:flex;flex-direction:column;font-size:13px;}
@@ -173,11 +173,17 @@ nav .tabs button.active,nav .tabs button:hover{background:rgba(255,255,255,.2);c
 .sync-setup input{max-width:300px;margin:0 auto 16px;display:block;text-align:center;font-size:18px;letter-spacing:2px;}
 .sync-setup .btn{font-size:16px;padding:12px 32px;}
 
-/* DATA ACTIONS */
-.data-actions{position:fixed;bottom:20px;right:20px;display:flex;gap:8px;z-index:50;}
-.data-actions .btn{box-shadow:0 2px 10px rgba(0,0,0,.15);}
+/* NAV MENU */
+.nav-menu-wrap{position:relative;margin-left:auto;}
+.nav-menu-btn{background:rgba(255,255,255,.2);border:none;color:#fff;font-size:20px;width:36px;height:36px;border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:.2s;}
+.nav-menu-btn:hover{background:rgba(255,255,255,.35);}
+.nav-dropdown{display:none;position:absolute;top:44px;right:0;background:#fff;border-radius:var(--radius);box-shadow:0 4px 20px rgba(0,0,0,.15);min-width:140px;z-index:150;overflow:hidden;}
+.nav-dropdown.show{display:block;}
+.nav-dropdown button{display:block;width:100%;padding:12px 16px;border:none;background:none;font-size:14px;text-align:left;cursor:pointer;color:var(--text);transition:.1s;}
+.nav-dropdown button:hover{background:var(--tag-bg);}
+.nav-dropdown button:last-child{color:var(--danger);}
 
-@media print{nav,.data-actions,.btn,.add-meal-btn,.remove-meal,.shop-week-nav,.shop-input-group,.shop-price-group{display:none!important;}.page{display:block!important;max-width:100%;}.page:not(.print-target){display:none!important;}.shop-list{box-shadow:none;border:1px solid #ccc;}}
+@media print{nav,.nav-menu-wrap,.btn,.add-meal-btn,.remove-meal,.shop-week-nav,.shop-input-group,.shop-price-group{display:none!important;}.page{display:block!important;max-width:100%;}.page:not(.print-target){display:none!important;}.shop-list{box-shadow:none;border:1px solid #ccc;}}
 </style>
 </head>
 <body>
@@ -190,6 +196,15 @@ nav .tabs button.active,nav .tabs button:hover{background:rgba(255,255,255,.2);c
     <button onclick="showPage('shopping')">購物清單</button>
   </div>
   <span class="sync-status" id="sync-status"></span>
+  <div class="nav-menu-wrap" id="nav-menu-wrap" style="display:none;">
+    <button class="nav-menu-btn" onclick="toggleNavMenu()" title="選單">&#9776;</button>
+    <div class="nav-dropdown" id="nav-dropdown">
+      <button onclick="exportData();closeNavMenu()">匯出資料</button>
+      <button onclick="document.getElementById('import-file').click();closeNavMenu()">匯入資料</button>
+      <button onclick="disconnectSync();closeNavMenu()">登出</button>
+    </div>
+  </div>
+  <input type="file" id="import-file" accept=".json" style="display:none" onchange="importData(event)">
 </nav>
 
 <!-- SYNC SETUP PAGE -->
@@ -319,13 +334,6 @@ nav .tabs button.active,nav .tabs button:hover{background:rgba(255,255,255,.2);c
   </div>
 </div>
 
-<!-- DATA ACTIONS -->
-<div class="data-actions" id="data-actions" style="display:none;">
-  <button class="btn btn-outline btn-sm" onclick="exportData()">匯出</button>
-  <button class="btn btn-outline btn-sm" onclick="document.getElementById('import-file').click()">匯入</button>
-  <button class="btn btn-outline btn-sm" onclick="disconnectSync()">登出</button>
-  <input type="file" id="import-file" accept=".json" style="display:none" onchange="importData(event)">
-</div>
 
 <!-- FIREBASE SDK -->
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
@@ -440,14 +448,14 @@ function connectSync(){
 function disconnectSync(){
   if(!confirm('確定要登出嗎？'))return;
   if(unsubscribe)unsubscribe();syncCode='';localStorage.removeItem('mp_sync_code');
-  document.getElementById('nav-tabs').style.display='none';document.getElementById('data-actions').style.display='none';
+  document.getElementById('nav-tabs').style.display='none';document.getElementById('nav-menu-wrap').style.display='none';
   document.getElementById('sync-status').textContent='';
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.getElementById('page-sync').classList.add('active');document.getElementById('sync-code-input').value='';
 }
 function enterApp(){
   document.getElementById('page-sync').classList.remove('active');
-  document.getElementById('nav-tabs').style.display='flex';document.getElementById('data-actions').style.display='flex';
+  document.getElementById('nav-tabs').style.display='flex';document.getElementById('nav-menu-wrap').style.display='';
   listenToCloud();showPage('recipes');
 }
 function refreshCurrentPage(){
@@ -841,6 +849,11 @@ function importData(event){
   }catch(err){alert('匯入失敗：檔案格式不正確');}};
   reader.readAsText(file);event.target.value='';
 }
+
+// ========== NAV MENU ==========
+function toggleNavMenu(){document.getElementById('nav-dropdown').classList.toggle('show');}
+function closeNavMenu(){document.getElementById('nav-dropdown').classList.remove('show');}
+document.addEventListener('click',e=>{const wrap=document.getElementById('nav-menu-wrap');if(wrap&&!wrap.contains(e.target))closeNavMenu();});
 
 // ========== MODAL CLICK ==========
 document.querySelectorAll('.modal-overlay').forEach(overlay=>{
