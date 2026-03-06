@@ -1,0 +1,862 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Meal Prep</title>
+<style>
+:root{--primary:#e07c4f;--primary-light:#f4a77a;--primary-dark:#b85a30;--bg:#faf6f1;--card:#ffffff;--text:#3a3a3a;--text-light:#888;--border:#e8e0d8;--tag-bg:#fef3ec;--tag-text:#c06030;--success:#5ba85b;--danger:#d9534f;--shadow:0 2px 8px rgba(0,0,0,.08);--radius:10px;}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:-apple-system,'Microsoft JhengHei','Segoe UI',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
+
+/* NAV */
+nav{background:var(--primary);color:#fff;padding:0 16px;display:flex;align-items:center;height:56px;position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,.15);}
+nav h1{font-size:18px;font-weight:700;margin-right:24px;white-space:nowrap;}
+nav .tabs{display:flex;gap:2px;flex:1;}
+nav .tabs button{background:none;border:none;color:rgba(255,255,255,.7);font-size:14px;padding:8px 14px;cursor:pointer;border-radius:8px 8px 0 0;transition:.2s;font-weight:500;}
+nav .tabs button.active,nav .tabs button:hover{background:rgba(255,255,255,.2);color:#fff;}
+.sync-status{font-size:11px;padding:4px 10px;border-radius:12px;white-space:nowrap;margin-left:8px;}
+.sync-ok{background:rgba(255,255,255,.2);color:#fff;}
+.sync-off{background:rgba(255,0,0,.3);color:#fff;}
+
+/* PAGES */
+.page{display:none;padding:20px;max-width:1200px;margin:0 auto;}
+.page.active{display:block;}
+
+/* BUTTONS */
+.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 18px;border:none;border-radius:8px;font-size:14px;font-weight:500;cursor:pointer;transition:.2s;}
+.btn-primary{background:var(--primary);color:#fff;}.btn-primary:hover{background:var(--primary-dark);}
+.btn-outline{background:none;border:2px solid var(--border);color:var(--text);}.btn-outline:hover{border-color:var(--primary);color:var(--primary);}
+.btn-danger{background:var(--danger);color:#fff;}.btn-danger:hover{opacity:.85;}
+.btn-sm{padding:5px 12px;font-size:13px;}
+
+/* FORMS */
+.form-group{margin-bottom:16px;}
+.form-group label{display:block;font-weight:600;margin-bottom:6px;font-size:14px;}
+.form-group input,.form-group textarea,.form-group select{width:100%;padding:10px 12px;border:2px solid var(--border);border-radius:8px;font-size:14px;font-family:inherit;transition:.2s;background:#fff;}
+.form-group input:focus,.form-group textarea:focus,.form-group select:focus{outline:none;border-color:var(--primary);}
+.form-group textarea{resize:vertical;min-height:100px;}
+
+/* MODALS */
+.modal-overlay{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.4);z-index:200;align-items:center;justify-content:center;}
+.modal-overlay.show{display:flex;}
+.modal{background:#fff;border-radius:var(--radius);padding:28px;width:92%;max-width:620px;max-height:88vh;overflow-y:auto;box-shadow:0 8px 30px rgba(0,0,0,.2);}
+.modal h2{margin-bottom:20px;font-size:20px;}
+.modal-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:20px;flex-wrap:wrap;}
+
+/* INGREDIENTS / CONDIMENT ROWS */
+.ing-list{display:flex;flex-direction:column;gap:8px;margin-bottom:8px;}
+.ing-row{display:flex;gap:8px;align-items:center;}
+.ing-row input:first-child{flex:2;}.ing-row input:last-of-type{flex:1;}
+.ing-row select:first-child{flex:2;padding:10px 12px;border:2px solid var(--border);border-radius:8px;font-size:14px;background:#fff;transition:.2s;}
+.ing-row select:first-child:focus{outline:none;border-color:var(--primary);}
+.ing-row .remove-ing{background:none;border:none;color:var(--danger);font-size:18px;cursor:pointer;padding:4px 8px;}
+
+/* TAGS */
+.tag{display:inline-block;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:500;margin:2px;cursor:pointer;transition:.2s;}
+.tag:hover{opacity:.8;}
+.tag-ingredient{background:var(--tag-bg);color:var(--tag-text);border:1px solid #f0d8c0;}
+.tag-ingredient.active{background:var(--primary);color:#fff;border-color:var(--primary);}
+.cat-tag{color:#fff;padding:4px 12px;font-size:12px;border-radius:20px;display:inline-block;}
+
+/* RECIPE LIST */
+.recipe-toolbar{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:20px;align-items:center;}
+.recipe-toolbar input{flex:1;min-width:200px;padding:10px 12px;border:2px solid var(--border);border-radius:8px;font-size:14px;}
+.recipe-toolbar input:focus{outline:none;border-color:var(--primary);}
+.cat-filters{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px;align-items:center;}
+.cat-filter-btn{padding:6px 14px;border:2px solid var(--border);border-radius:20px;background:none;font-size:13px;cursor:pointer;transition:.2s;font-weight:500;}
+.cat-filter-btn.active{border-color:var(--primary);background:var(--primary);color:#fff;}
+.cat-filter-btn:hover{border-color:var(--primary);}
+.ing-filters{margin-bottom:16px;}.ing-filters-title{font-size:13px;color:var(--text-light);margin-bottom:8px;}
+.recipe-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;}
+.recipe-card{background:var(--card);border-radius:var(--radius);padding:18px;box-shadow:var(--shadow);cursor:pointer;transition:.2s;border:2px solid transparent;}
+.recipe-card:hover{border-color:var(--primary-light);transform:translateY(-2px);}
+.recipe-card h3{font-size:16px;margin-bottom:8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.recipe-card .card-ings{color:var(--text-light);font-size:13px;margin-bottom:4px;}
+.recipe-card .card-conds{color:#b08060;font-size:12px;margin-bottom:8px;}
+.recipe-card .card-link{font-size:12px;color:var(--primary);text-decoration:none;word-break:break-all;}
+.recipe-card .card-link:hover{text-decoration:underline;}
+.recipe-card .card-footer{display:flex;justify-content:flex-end;gap:6px;margin-top:10px;}
+.empty-state{text-align:center;padding:60px 20px;color:var(--text-light);}
+.empty-state p{font-size:16px;margin-bottom:16px;}
+
+/* PLANNER */
+.week-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:10px;}
+.week-nav{display:flex;align-items:center;gap:12px;}
+.week-nav button{background:none;border:2px solid var(--border);border-radius:8px;padding:6px 14px;cursor:pointer;font-size:16px;transition:.2s;}
+.week-nav button:hover{border-color:var(--primary);color:var(--primary);}
+.week-nav span{font-size:16px;font-weight:600;min-width:280px;text-align:center;}
+.week-label-row{font-size:14px;font-weight:700;color:var(--primary);margin:16px 0 8px;padding:6px 0;border-bottom:2px solid var(--primary-light);}
+.week-label-row:first-child{margin-top:0;}
+.week-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:10px;margin-bottom:8px;}
+@media(max-width:1000px){.week-grid{grid-template-columns:repeat(4,1fr);}}
+@media(max-width:600px){.week-grid{grid-template-columns:repeat(2,1fr);}}
+.day-col{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);min-height:200px;display:flex;flex-direction:column;font-size:13px;}
+.day-header{padding:8px 10px;font-weight:700;font-size:13px;border-bottom:2px solid var(--border);text-align:center;}
+.day-header.today{background:var(--primary);color:#fff;border-radius:var(--radius) var(--radius) 0 0;}
+.day-section{padding:4px 8px;}
+.day-section-title{font-size:11px;font-weight:700;color:var(--text-light);margin:4px 0 2px;}
+.day-meal{background:var(--tag-bg);border-radius:5px;padding:4px 8px;font-size:12px;display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;}
+.day-meal span{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.day-meal .remove-meal{background:none;border:none;color:var(--danger);cursor:pointer;font-size:13px;padding:1px 4px;flex-shrink:0;}
+.add-meal-btn{border:1px dashed var(--border);border-radius:5px;padding:4px;text-align:center;font-size:11px;color:var(--text-light);cursor:pointer;margin:2px 0 4px;transition:.2s;background:none;width:100%;}
+.add-meal-btn:hover{border-color:var(--primary);color:var(--primary);}
+.day-notes{border:none;width:100%;font-size:11px;padding:4px 8px;border-top:1px solid var(--border);resize:none;min-height:32px;font-family:inherit;color:var(--text);background:transparent;}
+.day-notes::placeholder{color:#ccc;}
+.day-notes:focus{outline:none;background:#fffaf5;}
+
+/* PICKER */
+.picker-search{margin-bottom:12px;width:100%;padding:10px 12px;border:2px solid var(--border);border-radius:8px;font-size:14px;}
+.picker-search:focus{outline:none;border-color:var(--primary);}
+.picker-cats{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:12px;}
+.picker-list{max-height:300px;overflow-y:auto;}
+.picker-item{padding:10px 12px;border:1px solid var(--border);border-radius:8px;margin-bottom:6px;cursor:pointer;transition:.2s;display:flex;justify-content:space-between;align-items:center;}
+.picker-item:hover{border-color:var(--primary);background:var(--tag-bg);}
+.picker-item .pi-name{font-weight:600;font-size:14px;}.picker-item .pi-cat{font-size:12px;}
+
+/* SHOPPING */
+.shop-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:10px;}
+.shop-summary{font-size:14px;color:var(--text-light);margin-top:4px;}
+.shop-week-nav{display:flex;align-items:center;gap:10px;}
+.shop-week-nav button{background:none;border:2px solid var(--border);border-radius:8px;padding:6px 12px;cursor:pointer;font-size:14px;transition:.2s;}
+.shop-week-nav button:hover{border-color:var(--primary);color:var(--primary);}
+.shop-week-nav span{font-size:15px;font-weight:600;min-width:180px;text-align:center;}
+.shop-list{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);margin-bottom:16px;overflow:hidden;}
+.shop-section-title{padding:12px 16px;font-weight:700;font-size:15px;background:var(--tag-bg);border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;}
+.shop-section-title:first-child{border-radius:var(--radius) var(--radius) 0 0;}
+.shop-section-title .subtotal{font-size:14px;color:var(--primary-dark);}
+.shop-item{padding:10px 16px;display:flex;align-items:center;gap:10px;border-bottom:1px solid #f0ebe5;font-size:14px;flex-wrap:wrap;}
+.shop-item:last-child{border-bottom:none;}
+.shop-item input[type=checkbox]{width:18px;height:18px;accent-color:var(--primary);cursor:pointer;flex-shrink:0;}
+.shop-item.checked .item-info .item-name{text-decoration:line-through;color:var(--text-light);}
+.shop-item .item-info{flex:1;min-width:120px;}
+.shop-item .item-info .item-name{font-weight:500;}
+.shop-item .item-info .item-amt{color:var(--text-light);font-weight:400;}
+.shop-item .item-info .item-from{font-size:12px;color:var(--text-light);margin-top:2px;}
+.shop-input{width:80px;padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:13px;text-align:center;background:#fff;transition:.2s;flex-shrink:0;}
+.shop-input:focus{outline:none;border-color:var(--primary);}
+.shop-input-label{font-size:11px;color:var(--text-light);text-align:center;display:block;}
+.shop-input-group{display:flex;flex-direction:column;align-items:center;gap:2px;flex-shrink:0;}
+.shop-price-group{display:flex;align-items:center;gap:2px;flex-shrink:0;}
+.shop-price-group span{font-size:13px;color:var(--text-light);}
+.shop-empty{padding:40px;text-align:center;color:var(--text-light);}
+.shop-grand-total{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:16px 20px;display:flex;justify-content:flex-end;align-items:center;gap:20px;font-size:16px;flex-wrap:wrap;}
+.shop-grand-total .gt-item{color:var(--text-light);font-size:14px;}
+.shop-grand-total .gt-total{font-weight:700;font-size:20px;color:var(--primary-dark);}
+
+/* VIEW RECIPE */
+.view-recipe h2{margin-bottom:4px;}
+.view-recipe .vr-cat{margin-bottom:16px;}
+.view-recipe .vr-section{margin-bottom:16px;}
+.view-recipe .vr-section h4{font-size:14px;color:var(--text-light);margin-bottom:8px;border-bottom:1px solid var(--border);padding-bottom:4px;}
+.vr-ing-table{width:100%;border-collapse:collapse;}
+.vr-ing-table td{padding:4px 8px;font-size:14px;border-bottom:1px solid #f0ebe5;}
+.vr-ing-table td:first-child{font-weight:500;}.vr-ing-table td:last-child{color:var(--text-light);text-align:right;}
+.vr-steps{white-space:pre-wrap;font-size:14px;line-height:1.8;}
+.vr-link{display:inline-block;margin-top:8px;color:var(--primary);text-decoration:none;word-break:break-all;font-size:14px;}
+.vr-link:hover{text-decoration:underline;}
+
+/* MANAGE LIST */
+.manage-list{max-height:300px;overflow-y:auto;margin-bottom:12px;}
+.manage-item{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #f0ebe5;}
+.manage-item input{flex:1;padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:14px;}
+.manage-item .color-input{width:50px;flex:none;padding:2px;height:32px;border:none;cursor:pointer;}
+.manage-item button{flex-shrink:0;}
+.add-manage-row{display:flex;gap:8px;margin-bottom:12px;}
+.add-manage-row input{flex:1;padding:8px 10px;border:2px solid var(--border);border-radius:8px;font-size:14px;}
+.add-manage-row input:focus{outline:none;border-color:var(--primary);}
+
+/* SYNC SETUP */
+.sync-setup{text-align:center;padding:40px 20px;}
+.sync-setup h2{margin-bottom:16px;}
+.sync-setup p{color:var(--text-light);margin-bottom:20px;line-height:1.6;}
+.sync-setup input{max-width:300px;margin:0 auto 16px;display:block;text-align:center;font-size:18px;letter-spacing:2px;}
+.sync-setup .btn{font-size:16px;padding:12px 32px;}
+
+/* DATA ACTIONS */
+.data-actions{position:fixed;bottom:20px;right:20px;display:flex;gap:8px;z-index:50;}
+.data-actions .btn{box-shadow:0 2px 10px rgba(0,0,0,.15);}
+
+@media print{nav,.data-actions,.btn,.add-meal-btn,.remove-meal,.shop-week-nav,.shop-input-group,.shop-price-group{display:none!important;}.page{display:block!important;max-width:100%;}.page:not(.print-target){display:none!important;}.shop-list{box-shadow:none;border:1px solid #ccc;}}
+</style>
+</head>
+<body>
+
+<nav>
+  <h1>Meal Prep</h1>
+  <div class="tabs" id="nav-tabs" style="display:none;">
+    <button class="active" onclick="showPage('recipes')">食譜庫</button>
+    <button onclick="showPage('planner')">週菜單</button>
+    <button onclick="showPage('shopping')">購物清單</button>
+  </div>
+  <span class="sync-status" id="sync-status"></span>
+</nav>
+
+<!-- SYNC SETUP PAGE -->
+<div id="page-sync" class="page active">
+  <div class="sync-setup">
+    <h2>設定同步密碼</h2>
+    <p>輸入一組密碼，所有裝置使用相同密碼就能同步資料。<br>首次使用請自訂一組密碼；其他裝置輸入同一組即可。</p>
+    <div class="form-group">
+      <input type="text" id="sync-code-input" placeholder="輸入同步密碼" autocomplete="off">
+    </div>
+    <button class="btn btn-primary" onclick="connectSync()">連線</button>
+    <p style="margin-top:20px;font-size:12px;color:var(--text-light);">密碼僅作為資料配對使用，不會儲存任何個人資訊。</p>
+  </div>
+</div>
+
+<!-- RECIPES PAGE -->
+<div id="page-recipes" class="page">
+  <div class="recipe-toolbar">
+    <input type="text" id="search-input" placeholder="搜尋食譜名稱或食材..." oninput="renderRecipes()">
+    <button class="btn btn-primary" onclick="openAddRecipe()">+ 新增食譜</button>
+  </div>
+  <div class="cat-filters" id="cat-filters"></div>
+  <div class="ing-filters" id="ing-filters"></div>
+  <div class="recipe-grid" id="recipe-grid"></div>
+</div>
+
+<!-- PLANNER PAGE -->
+<div id="page-planner" class="page">
+  <div class="week-header">
+    <div class="week-nav">
+      <button onclick="changeWeek(-1)">&lt;&lt;</button>
+      <span id="week-label"></span>
+      <button onclick="changeWeek(1)">&gt;&gt;</button>
+    </div>
+    <button class="btn btn-primary" onclick="showPage('shopping')">查看購物清單</button>
+  </div>
+  <div id="planner-content"></div>
+</div>
+
+<!-- SHOPPING PAGE -->
+<div id="page-shopping" class="page print-target">
+  <div class="shop-header">
+    <div>
+      <h2>購物清單</h2>
+      <div class="shop-summary" id="shop-summary"></div>
+    </div>
+    <div class="shop-week-nav">
+      <button onclick="changeShopWeek(-1)">&lt;</button>
+      <span id="shop-week-label"></span>
+      <button onclick="changeShopWeek(1)">&gt;</button>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <button class="btn btn-outline" onclick="copyShoppingList()">複製到剪貼簿</button>
+      <button class="btn btn-outline" onclick="window.print()">列印</button>
+    </div>
+  </div>
+  <div id="shop-content"></div>
+</div>
+
+<!-- MODAL: ADD/EDIT RECIPE -->
+<div class="modal-overlay" id="modal-recipe">
+  <div class="modal">
+    <h2 id="modal-recipe-title">新增食譜</h2>
+    <div class="form-group"><label>食譜名稱</label><input type="text" id="f-name" placeholder="例：番茄炒蛋"></div>
+    <div class="form-group"><label>分類</label><select id="f-category"></select></div>
+    <div class="form-group">
+      <label>食材</label>
+      <div class="ing-list" id="f-ingredients"></div>
+      <button class="btn btn-outline btn-sm" onclick="addIngRow()">+ 新增食材</button>
+    </div>
+    <div class="form-group">
+      <label>佐料</label>
+      <div class="ing-list" id="f-condiments"></div>
+      <div style="display:flex;gap:8px;align-items:center;margin-top:4px;">
+        <button class="btn btn-outline btn-sm" onclick="addCondRow()">+ 新增佐料</button>
+        <button class="btn btn-outline btn-sm" onclick="openManageCondiments()">管理佐料清單</button>
+      </div>
+    </div>
+    <div class="form-group"><label>料理步驟</label><textarea id="f-steps" placeholder="用你自己好理解的文字記下步驟..."></textarea></div>
+    <div class="form-group"><label>影片/社群連結</label><input type="text" id="f-link" placeholder="https://www.instagram.com/reel/..."></div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeRecipeModal()">取消</button>
+      <button class="btn btn-danger btn-sm" onclick="clearDraft()">清除草稿</button>
+      <button class="btn btn-primary" onclick="saveRecipe()">儲存</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: VIEW RECIPE -->
+<div class="modal-overlay" id="modal-view"><div class="modal view-recipe" id="view-recipe-content"></div></div>
+
+<!-- MODAL: PICK RECIPE -->
+<div class="modal-overlay" id="modal-picker">
+  <div class="modal">
+    <h2 id="picker-title">選擇食譜</h2>
+    <input type="text" class="picker-search" id="picker-search" placeholder="搜尋食譜..." oninput="renderPicker()">
+    <div class="picker-cats" id="picker-cats"></div>
+    <div class="picker-list" id="picker-list"></div>
+    <div class="modal-actions"><button class="btn btn-outline" onclick="closeModal('modal-picker')">取消</button></div>
+  </div>
+</div>
+
+<!-- MODAL: MANAGE CATEGORIES -->
+<div class="modal-overlay" id="modal-manage-cat">
+  <div class="modal">
+    <h2>管理分類</h2>
+    <div class="add-manage-row">
+      <input type="text" id="new-cat-name" placeholder="新分類名稱">
+      <input type="color" id="new-cat-color" value="#e07c4f" style="width:50px;height:38px;border:none;padding:0;cursor:pointer;">
+      <button class="btn btn-primary btn-sm" onclick="addCategory()">新增</button>
+    </div>
+    <div class="manage-list" id="manage-cat-list"></div>
+    <div class="modal-actions"><button class="btn btn-outline" onclick="closeModal('modal-manage-cat');renderRecipes();">關閉</button></div>
+  </div>
+</div>
+
+<!-- MODAL: MANAGE CONDIMENTS -->
+<div class="modal-overlay" id="modal-manage-cond">
+  <div class="modal">
+    <h2>管理佐料</h2>
+    <div class="add-manage-row">
+      <input type="text" id="new-cond-name" placeholder="新佐料名稱">
+      <button class="btn btn-primary btn-sm" onclick="addCondiment()">新增</button>
+    </div>
+    <div class="manage-list" id="manage-cond-list"></div>
+    <div class="modal-actions"><button class="btn btn-outline" onclick="closeModal('modal-manage-cond');refreshCondSelects();">關閉</button></div>
+  </div>
+</div>
+
+<!-- DATA ACTIONS -->
+<div class="data-actions" id="data-actions" style="display:none;">
+  <button class="btn btn-outline btn-sm" onclick="exportData()">匯出</button>
+  <button class="btn btn-outline btn-sm" onclick="document.getElementById('import-file').click()">匯入</button>
+  <button class="btn btn-outline btn-sm" onclick="disconnectSync()">登出</button>
+  <input type="file" id="import-file" accept=".json" style="display:none" onchange="importData(event)">
+</div>
+
+<!-- FIREBASE SDK -->
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+
+<script>
+// ========== FIREBASE CONFIG ==========
+firebase.initializeApp({
+  apiKey: "AIzaSyDywm7da51BF2rNb-neGRm0CFcUUfqrvG0",
+  authDomain: "wenwen-cooking.firebaseapp.com",
+  projectId: "wenwen-cooking",
+  storageBucket: "wenwen-cooking.firebasestorage.app",
+  messagingSenderId: "831203482430",
+  appId: "1:831203482430:web:947f67b533046737932a6f"
+});
+const db = firebase.firestore();
+
+// ========== DEFAULTS ==========
+const DEFAULT_CATEGORIES = [
+  {id:'snack',name:'點心',color:'#f0c27a'},
+  {id:'noodle',name:'麵食',color:'#e8a87c'},
+  {id:'rice',name:'米食',color:'#a8d8a8'},
+  {id:'combo',name:'複合型正餐',color:'#7ec8c8'},
+  {id:'home',name:'家常菜',color:'#c8a8e8'},
+  {id:'soup',name:'湯品',color:'#a8c8f0'}
+];
+const DEFAULT_CONDIMENTS = ['鹽巴','白糖','醬油','醬油膏','素蠔油','米酒','味醂','白醋','烏醋','芝麻油','白胡椒','黑胡椒','美乃滋','韓式辣醬','韓式大醬','太白粉','芥末','芥末籽'];
+const DAY_NAMES = ['一','二','三','四','五','六','日'];
+const DAY_KEYS = ['mon','tue','wed','thu','fri','sat','sun'];
+const MEAL_SLOTS = [{key:'morning',label:'早/午餐'},{key:'dinner',label:'晚餐'}];
+
+// ========== STATE ==========
+let recipes = [];
+let weekPlans = {};
+let categories = JSON.parse(JSON.stringify(DEFAULT_CATEGORIES));
+let condiments = [...DEFAULT_CONDIMENTS];
+let currentWeekStart = getMonday(new Date());
+let shopWeekStart = (function(){const m=getMonday(new Date());m.setDate(m.getDate()+7);return m;})(); // default next week
+let editingId = null;
+let pickerDay = null;
+let activeCat = null;
+let activeIng = null;
+let pickerCat = null;
+let syncCode = localStorage.getItem('mp_sync_code') || '';
+let unsubscribe = null;
+let saving = false;
+
+// ========== UTILS ==========
+function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,8);}
+function getMonday(d){d=new Date(d);const day=d.getDay();d.setDate(d.getDate()-day+(day===0?-6:1));d.setHours(0,0,0,0);return d;}
+function weekKey(d){return d.toISOString().slice(0,10);}
+function fmtDate(d){return(d.getMonth()+1)+'/'+d.getDate();}
+function getCat(id){return categories.find(c=>c.id===id)||{id,name:id,color:'#ccc'};}
+function esc(s){if(!s)return'';const d=document.createElement('div');d.textContent=s;return d.innerHTML;}
+function openModal(id){document.getElementById(id).classList.add('show');}
+function closeModal(id){document.getElementById(id).classList.remove('show');}
+function normConds(arr){if(!arr||!arr.length)return[];return arr.map(c=>typeof c==='string'?{name:c,amount:''}:c);}
+
+// ========== AMOUNT PARSING & AGGREGATION ==========
+function parseAmount(str){
+  if(!str)return null;str=str.trim();if(!str)return null;
+  if(str.startsWith('半')){return{num:0.5,unit:str.slice(1)};}
+  let m=str.match(/^(\d+)\/(\d+)(.*)$/);
+  if(m){const n=parseFloat(m[1])/parseFloat(m[2]);return isNaN(n)?null:{num:n,unit:m[3].trim()};}
+  m=str.match(/^(\d+(?:\.\d+)?)(.*)$/);
+  if(m){const n=parseFloat(m[1]);return isNaN(n)?null:{num:n,unit:m[2].trim()};}
+  return null;
+}
+function aggregateAmounts(amounts){
+  if(!amounts.length)return'';if(amounts.length===1)return amounts[0];
+  const byUnit={};const unparsed=[];
+  amounts.forEach(a=>{const p=parseAmount(a);if(p){const u=p.unit;if(!byUnit[u])byUnit[u]=0;byUnit[u]+=p.num;}else{unparsed.push(a);}});
+  const parts=[];
+  for(const[unit,num]of Object.entries(byUnit)){const s=num%1===0?num.toString():parseFloat(num.toFixed(2)).toString();parts.push(s+unit);}
+  parts.push(...unparsed);
+  return parts.join(' + ');
+}
+
+// ========== SYNC ==========
+function docRef(){return db.collection('mealprep').doc(syncCode);}
+function saveToCloud(){
+  if(!syncCode||saving)return;saving=true;
+  docRef().set({recipes,weekPlans,categories,condiments,updatedAt:firebase.firestore.FieldValue.serverTimestamp()})
+    .then(()=>{saving=false;setSyncStatus(true);}).catch(e=>{saving=false;console.error('Save error:',e);setSyncStatus(false);});
+}
+function listenToCloud(){
+  if(unsubscribe)unsubscribe();
+  unsubscribe=docRef().onSnapshot(snap=>{
+    if(!snap.exists||saving)return;
+    const data=snap.data();
+    recipes=data.recipes||[];weekPlans=data.weekPlans||{};
+    categories=data.categories||JSON.parse(JSON.stringify(DEFAULT_CATEGORIES));
+    condiments=data.condiments||[...DEFAULT_CONDIMENTS];
+    setSyncStatus(true);refreshCurrentPage();
+  },err=>{console.error('Listen error:',err);setSyncStatus(false);});
+}
+function setSyncStatus(ok){
+  const el=document.getElementById('sync-status');
+  if(ok){el.textContent='已同步';el.className='sync-status sync-ok';}
+  else{el.textContent='同步異常';el.className='sync-status sync-off';}
+}
+function connectSync(){
+  const code=document.getElementById('sync-code-input').value.trim();
+  if(!code){alert('請輸入同步密碼');return;}
+  if(code.length<4){alert('密碼至少 4 個字元');return;}
+  syncCode=code;localStorage.setItem('mp_sync_code',syncCode);
+  docRef().get().then(snap=>{
+    if(!snap.exists){recipes=[];weekPlans={};categories=JSON.parse(JSON.stringify(DEFAULT_CATEGORIES));condiments=[...DEFAULT_CONDIMENTS];saveToCloud();}
+    enterApp();
+  }).catch(e=>{alert('連線失敗，請確認網路連線和 Firebase 設定。\n'+e.message);});
+}
+function disconnectSync(){
+  if(!confirm('確定要登出嗎？'))return;
+  if(unsubscribe)unsubscribe();syncCode='';localStorage.removeItem('mp_sync_code');
+  document.getElementById('nav-tabs').style.display='none';document.getElementById('data-actions').style.display='none';
+  document.getElementById('sync-status').textContent='';
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.getElementById('page-sync').classList.add('active');document.getElementById('sync-code-input').value='';
+}
+function enterApp(){
+  document.getElementById('page-sync').classList.remove('active');
+  document.getElementById('nav-tabs').style.display='flex';document.getElementById('data-actions').style.display='flex';
+  listenToCloud();showPage('recipes');
+}
+function refreshCurrentPage(){
+  const active=document.querySelector('.page.active:not(#page-sync)');if(!active)return;
+  if(active.id==='page-recipes')renderRecipes();
+  if(active.id==='page-planner')renderPlanner();
+  if(active.id==='page-shopping')renderShopping();
+}
+
+// ========== NAV ==========
+function showPage(name){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.getElementById('page-'+name).classList.add('active');
+  document.querySelectorAll('#nav-tabs button').forEach((b,i)=>b.classList.toggle('active',['recipes','planner','shopping'][i]===name));
+  if(name==='recipes')renderRecipes();
+  if(name==='planner')renderPlanner();
+  if(name==='shopping')renderShopping();
+}
+
+// ========== CATEGORIES ==========
+function renderCatSelect(selId,val){
+  const sel=document.getElementById(selId);
+  sel.innerHTML=categories.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('');
+  if(val)sel.value=val;
+}
+function renderCatFilters(){
+  const el=document.getElementById('cat-filters');
+  let h='<button class="cat-filter-btn '+(activeCat===null?'active':'')+'" onclick="setCatFilter(null)">全部</button>';
+  categories.forEach(c=>{h+=`<button class="cat-filter-btn ${activeCat===c.id?'active':''}" style="${activeCat===c.id?'background:'+c.color+';border-color:'+c.color+';color:#fff':''}" onclick="setCatFilter('${c.id}')">${esc(c.name)}</button>`;});
+  h+=' <button class="btn btn-outline btn-sm" onclick="openManageCategories()" style="margin-left:8px;">管理分類</button>';
+  el.innerHTML=h;
+}
+function setCatFilter(c){activeCat=(activeCat===c)?null:c;renderRecipes();}
+function openManageCategories(){renderManageCatList();openModal('modal-manage-cat');}
+function renderManageCatList(){
+  document.getElementById('manage-cat-list').innerHTML=categories.map((c,i)=>`<div class="manage-item">
+    <input type="color" class="color-input" value="${c.color}" onchange="updateCatColor(${i},this.value)">
+    <input value="${esc(c.name)}" onchange="updateCatName(${i},this.value)">
+    <button class="btn btn-danger btn-sm" onclick="deleteCategory(${i})">刪除</button></div>`).join('');
+}
+function addCategory(){const inp=document.getElementById('new-cat-name'),col=document.getElementById('new-cat-color');const n=inp.value.trim();if(!n)return;categories.push({id:uid(),name:n,color:col.value});inp.value='';saveToCloud();renderManageCatList();}
+function updateCatName(i,v){categories[i].name=v.trim()||categories[i].name;saveToCloud();renderManageCatList();}
+function updateCatColor(i,v){categories[i].color=v;saveToCloud();renderManageCatList();}
+function deleteCategory(i){if(!confirm('確定刪除「'+categories[i].name+'」？'))return;categories.splice(i,1);saveToCloud();renderManageCatList();}
+
+// ========== CONDIMENTS ==========
+function openManageCondiments(){renderManageCondList();openModal('modal-manage-cond');}
+function renderManageCondList(){
+  document.getElementById('manage-cond-list').innerHTML=condiments.map((c,i)=>`<div class="manage-item">
+    <input value="${esc(c)}" onchange="updateCondiment(${i},this.value)">
+    <button class="btn btn-danger btn-sm" onclick="deleteCondiment(${i})">刪除</button></div>`).join('');
+}
+function addCondiment(){const inp=document.getElementById('new-cond-name');const n=inp.value.trim();if(!n)return;if(!condiments.includes(n))condiments.push(n);inp.value='';saveToCloud();renderManageCondList();}
+function updateCondiment(i,v){const n=v.trim();if(n)condiments[i]=n;saveToCloud();renderManageCondList();}
+function deleteCondiment(i){condiments.splice(i,1);saveToCloud();renderManageCondList();}
+function refreshCondSelects(){
+  const rows=document.querySelectorAll('#f-condiments .ing-row');
+  rows.forEach(row=>{const sel=row.querySelector('select');if(!sel)return;const cur=sel.value;
+    sel.innerHTML='<option value="">-- 選擇佐料 --</option>'+condiments.map(c=>`<option value="${esc(c)}" ${c===cur?'selected':''}>${esc(c)}</option>`).join('');
+    if(cur)sel.value=cur;});
+}
+function addCondRow(name='',amount=''){
+  const list=document.getElementById('f-condiments');const row=document.createElement('div');row.className='ing-row';
+  const opts=condiments.map(c=>`<option value="${esc(c)}" ${c===name?'selected':''}>${esc(c)}</option>`).join('');
+  row.innerHTML=`<select><option value="">-- 選擇佐料 --</option>${opts}</select><input type="text" placeholder="份量" value="${esc(amount)}"><button class="remove-ing" onclick="this.parentElement.remove()" type="button">x</button>`;
+  list.appendChild(row);
+}
+
+// ========== INGREDIENT FILTERS ==========
+function getAllIngredients(){const s=new Set();recipes.forEach(r=>(r.ingredients||[]).forEach(i=>{if(i.name.trim())s.add(i.name.trim());}));return[...s].sort();}
+function renderIngFilters(){
+  const el=document.getElementById('ing-filters');const ings=getAllIngredients();
+  if(!ings.length){el.innerHTML='';return;}
+  let h='<div class="ing-filters-title">依食材篩選：</div>';
+  ings.forEach(n=>{h+=`<span class="tag tag-ingredient ${activeIng===n?'active':''}" onclick="setIngFilter('${n.replace(/'/g,"\\'")}')">${n}</span>`;});
+  if(activeIng)h+=' <span class="tag" style="background:#eee;color:#666;" onclick="setIngFilter(null)">清除</span>';
+  el.innerHTML=h;
+}
+function setIngFilter(v){activeIng=(activeIng===v)?null:v;renderRecipes();}
+
+// ========== RECIPES PAGE ==========
+function renderRecipes(){
+  renderCatFilters();renderIngFilters();
+  const q=document.getElementById('search-input').value.trim().toLowerCase();
+  let filtered=recipes.filter(r=>{
+    if(q&&!r.name.toLowerCase().includes(q)&&!(r.ingredients||[]).some(i=>i.name.toLowerCase().includes(q)))return false;
+    if(activeCat&&r.category!==activeCat)return false;
+    if(activeIng&&!(r.ingredients||[]).some(i=>i.name.trim()===activeIng))return false;
+    return true;
+  });
+  const grid=document.getElementById('recipe-grid');
+  if(!filtered.length){grid.innerHTML='<div class="empty-state"><p>'+(recipes.length===0?'還沒有食譜，點擊「+ 新增食譜」開始建立！':'沒有符合條件的食譜')+'</p></div>';return;}
+  grid.innerHTML=filtered.map(r=>{
+    const cat=getCat(r.category);
+    const ings=(r.ingredients||[]).map(i=>i.name).filter(Boolean).join(', ');
+    const conds=normConds(r.condiments).map(c=>c.name).filter(Boolean).join(', ');
+    return`<div class="recipe-card" onclick="viewRecipe('${r.id}')">
+      <h3><span class="cat-tag" style="background:${cat.color};">${esc(cat.name)}</span>${esc(r.name)}</h3>
+      <div class="card-ings">${esc(ings)||'(無食材)'}</div>
+      ${conds?`<div class="card-conds">佐料：${esc(conds)}</div>`:''}
+      ${r.link?`<a class="card-link" href="${esc(r.link)}" target="_blank" onclick="event.stopPropagation()">影片連結</a>`:''}
+      <div class="card-footer">
+        <button class="btn btn-outline btn-sm" onclick="event.stopPropagation();openEditRecipe('${r.id}')">編輯</button>
+        <button class="btn btn-danger btn-sm" onclick="event.stopPropagation();deleteRecipe('${r.id}')">刪除</button>
+      </div></div>`;
+  }).join('');
+}
+
+// ========== DRAFT ==========
+const DRAFT_KEY='mp_recipe_draft';
+function getFormData(){
+  const rows=document.querySelectorAll('#f-ingredients .ing-row');const ingredients=[];
+  rows.forEach(row=>{const ins=row.querySelectorAll('input');ingredients.push({name:ins[0].value,amount:ins[1].value});});
+  const condRows=document.querySelectorAll('#f-condiments .ing-row');const conds=[];
+  condRows.forEach(row=>{const sel=row.querySelector('select');const inp=row.querySelector('input');if(sel&&inp)conds.push({name:sel.value,amount:inp.value});});
+  return{editingId,name:document.getElementById('f-name').value,category:document.getElementById('f-category').value,steps:document.getElementById('f-steps').value,link:document.getElementById('f-link').value,ingredients,condiments:conds};
+}
+function saveDraft(){const d=getFormData();if(d.editingId)return;const has=d.name.trim()||d.steps.trim()||d.link.trim()||d.ingredients.some(i=>i.name.trim()||i.amount.trim())||d.condiments.some(c=>c.name.trim()||c.amount.trim());if(has)localStorage.setItem(DRAFT_KEY,JSON.stringify(d));}
+function loadDraft(){try{return JSON.parse(localStorage.getItem(DRAFT_KEY));}catch(e){return null;}}
+function clearDraftStorage(){localStorage.removeItem(DRAFT_KEY);}
+function clearDraft(){if(!confirm('確定要清除目前填寫的所有內容嗎？'))return;clearDraftStorage();document.getElementById('f-name').value='';document.getElementById('f-category').value=categories[0]?.id||'';document.getElementById('f-steps').value='';document.getElementById('f-link').value='';document.getElementById('f-ingredients').innerHTML='';addIngRow();addIngRow();addIngRow();document.getElementById('f-condiments').innerHTML='';addCondRow();}
+function formHasContent(){const d=getFormData();return d.name.trim()||d.steps.trim()||d.link.trim()||d.ingredients.some(i=>i.name.trim()||i.amount.trim())||d.condiments.some(c=>c.name.trim()||c.amount.trim());}
+function closeRecipeModal(){if(formHasContent()){if(!editingId)saveDraft();if(!confirm('表單尚有內容，確定要關閉嗎？\n（新增模式下內容已自動暫存，下次開啟會還原）'))return;}document.getElementById('modal-recipe').classList.remove('show');}
+
+// ========== ADD/EDIT RECIPE ==========
+function openAddRecipe(){
+  editingId=null;document.getElementById('modal-recipe-title').textContent='新增食譜';
+  renderCatSelect('f-category');
+  const draft=loadDraft();
+  if(draft&&!draft.editingId){
+    document.getElementById('f-name').value=draft.name||'';document.getElementById('f-category').value=draft.category||categories[0]?.id||'';
+    document.getElementById('f-steps').value=draft.steps||'';document.getElementById('f-link').value=draft.link||'';
+    const list=document.getElementById('f-ingredients');list.innerHTML='';
+    if(draft.ingredients?.length)draft.ingredients.forEach(i=>addIngRow(i.name||'',i.amount||''));
+    else{addIngRow();addIngRow();addIngRow();}
+    const condList=document.getElementById('f-condiments');condList.innerHTML='';
+    const draftConds=normConds(draft.condiments);
+    if(draftConds.length)draftConds.forEach(c=>addCondRow(c.name||'',c.amount||''));
+    else addCondRow();
+  }else{
+    document.getElementById('f-name').value='';document.getElementById('f-category').value=categories[0]?.id||'';
+    document.getElementById('f-steps').value='';document.getElementById('f-link').value='';
+    document.getElementById('f-ingredients').innerHTML='';addIngRow();addIngRow();addIngRow();
+    document.getElementById('f-condiments').innerHTML='';addCondRow();
+  }
+  openModal('modal-recipe');
+}
+function openEditRecipe(id){
+  const r=recipes.find(x=>x.id===id);if(!r)return;editingId=id;
+  document.getElementById('modal-recipe-title').textContent='編輯食譜';renderCatSelect('f-category',r.category);
+  document.getElementById('f-name').value=r.name;document.getElementById('f-steps').value=r.steps;document.getElementById('f-link').value=r.link||'';
+  const list=document.getElementById('f-ingredients');list.innerHTML='';
+  (r.ingredients||[]).forEach(i=>addIngRow(i.name,i.amount));if(!(r.ingredients||[]).length)addIngRow();
+  const condList=document.getElementById('f-condiments');condList.innerHTML='';
+  const rc=normConds(r.condiments);rc.forEach(c=>addCondRow(c.name,c.amount));if(!rc.length)addCondRow();
+  openModal('modal-recipe');
+}
+function addIngRow(name='',amount=''){
+  const list=document.getElementById('f-ingredients');const row=document.createElement('div');row.className='ing-row';
+  row.innerHTML=`<input type="text" placeholder="食材名稱" value="${esc(name)}"><input type="text" placeholder="份量" value="${esc(amount)}"><button class="remove-ing" onclick="this.parentElement.remove()" type="button">x</button>`;
+  list.appendChild(row);
+}
+function saveRecipe(){
+  const name=document.getElementById('f-name').value.trim();if(!name){alert('請輸入食譜名稱');return;}
+  const category=document.getElementById('f-category').value;
+  const steps=document.getElementById('f-steps').value.trim();
+  const link=document.getElementById('f-link').value.trim();
+  const rows=document.querySelectorAll('#f-ingredients .ing-row');const ingredients=[];
+  rows.forEach(row=>{const ins=row.querySelectorAll('input');const n=ins[0].value.trim(),a=ins[1].value.trim();if(n)ingredients.push({name:n,amount:a});});
+  const condRows=document.querySelectorAll('#f-condiments .ing-row');const conds=[];
+  condRows.forEach(row=>{const sel=row.querySelector('select');const inp=row.querySelector('input');const n=(sel?.value||'').trim(),a=(inp?.value||'').trim();if(n)conds.push({name:n,amount:a});});
+  if(editingId){const r=recipes.find(x=>x.id===editingId);Object.assign(r,{name,category,ingredients,condiments:conds,steps,link});}
+  else{recipes.push({id:uid(),name,category,ingredients,condiments:conds,steps,link});clearDraftStorage();}
+  saveToCloud();document.getElementById('modal-recipe').classList.remove('show');renderRecipes();
+}
+function deleteRecipe(id){
+  if(!confirm('確定要刪除這個食譜嗎？'))return;
+  recipes=recipes.filter(r=>r.id!==id);
+  for(const wk of Object.values(weekPlans)){for(const dk of Object.keys(wk)){const day=wk[dk];if(day)MEAL_SLOTS.forEach(s=>{if(day[s.key])day[s.key]=day[s.key].filter(rid=>rid!==id);});}}
+  saveToCloud();renderRecipes();
+}
+
+// ========== VIEW RECIPE ==========
+function viewRecipe(id){
+  const r=recipes.find(x=>x.id===id);if(!r)return;const cat=getCat(r.category);
+  const rc=normConds(r.condiments).filter(c=>c.name);
+  document.getElementById('view-recipe-content').innerHTML=`
+    <h2>${esc(r.name)}</h2>
+    <div class="vr-cat"><span class="cat-tag" style="background:${cat.color};">${esc(cat.name)}</span></div>
+    <div class="vr-section"><h4>食材</h4>
+      ${(r.ingredients||[]).length?`<table class="vr-ing-table">${r.ingredients.map(i=>`<tr><td>${esc(i.name)}</td><td>${esc(i.amount)}</td></tr>`).join('')}</table>`:'<p style="color:var(--text-light)">無食材</p>'}
+    </div>
+    ${rc.length?`<div class="vr-section"><h4>佐料</h4><table class="vr-ing-table">${rc.map(c=>`<tr><td>${esc(c.name)}</td><td>${esc(c.amount)}</td></tr>`).join('')}</table></div>`:''}
+    <div class="vr-section"><h4>料理步驟</h4><div class="vr-steps">${esc(r.steps)||'(未填寫)'}</div></div>
+    ${r.link?`<div class="vr-section"><h4>影片連結</h4><a class="vr-link" href="${esc(r.link)}" target="_blank">${esc(r.link)}</a></div>`:''}
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeModal('modal-view')">關閉</button>
+      <button class="btn btn-primary" onclick="closeModal('modal-view');openEditRecipe('${r.id}')">編輯</button>
+    </div>`;
+  openModal('modal-view');
+}
+
+// ========== PLANNER ==========
+function changeWeek(dir){currentWeekStart=new Date(currentWeekStart);currentWeekStart.setDate(currentWeekStart.getDate()+dir*7);renderPlanner();}
+function getDayPlan(wkKey,dayKey){
+  if(!weekPlans[wkKey])weekPlans[wkKey]={};
+  if(!weekPlans[wkKey][dayKey])weekPlans[wkKey][dayKey]={morning:[],dinner:[],notes:''};
+  return weekPlans[wkKey][dayKey];
+}
+function renderPlanner(){
+  const today=new Date();today.setHours(0,0,0,0);
+  const w1=new Date(currentWeekStart);const w2=new Date(currentWeekStart);w2.setDate(w2.getDate()+7);
+  const w1end=new Date(w1);w1end.setDate(w1end.getDate()+6);
+  const w2end=new Date(w2);w2end.setDate(w2end.getDate()+6);
+  document.getElementById('week-label').textContent=`${fmtDate(w1)} - ${fmtDate(w2end)}`;
+  let html='';
+  [w1,w2].forEach((ws,wi)=>{
+    const wk=weekKey(ws);const wend=new Date(ws);wend.setDate(wend.getDate()+6);
+    html+=`<div class="week-label-row">${wi===0?'本週':'下週'}：${fmtDate(ws)} - ${fmtDate(wend)}</div><div class="week-grid">`;
+    DAY_KEYS.forEach((dk,di)=>{
+      const d=new Date(ws);d.setDate(d.getDate()+di);const isToday=d.getTime()===today.getTime();
+      const day=getDayPlan(wk,dk);
+      html+=`<div class="day-col"><div class="day-header ${isToday?'today':''}">週${DAY_NAMES[di]} ${fmtDate(d)}</div>`;
+      MEAL_SLOTS.forEach(slot=>{
+        const meals=(day[slot.key]||[]).map(rid=>recipes.find(r=>r.id===rid)).filter(Boolean);
+        html+=`<div class="day-section"><div class="day-section-title">${slot.label}</div>`;
+        meals.forEach(r=>{html+=`<div class="day-meal"><span title="${esc(r.name)}">${esc(r.name)}</span><button class="remove-meal" onclick="removeMeal('${wk}','${dk}','${slot.key}','${r.id}')">x</button></div>`;});
+        html+=`<button class="add-meal-btn" onclick="openPicker('${wk}','${dk}','${slot.key}')">+</button></div>`;
+      });
+      html+=`<textarea class="day-notes" placeholder="備註..." onchange="saveNotes('${wk}','${dk}',this.value)">${esc(day.notes||'')}</textarea></div>`;
+    });
+    html+='</div>';
+  });
+  document.getElementById('planner-content').innerHTML=html;
+}
+function removeMeal(wk,dk,slot,rid){const day=getDayPlan(wk,dk);const arr=day[slot]||[];const idx=arr.indexOf(rid);if(idx>=0)arr.splice(idx,1);saveToCloud();renderPlanner();}
+function saveNotes(wk,dk,val){getDayPlan(wk,dk).notes=val;saveToCloud();}
+
+// ========== PICKER ==========
+function openPicker(wk,dk,slot){pickerDay={wk,dk,slot};pickerCat=null;document.getElementById('picker-search').value='';renderPickerCats();renderPicker();openModal('modal-picker');}
+function renderPickerCats(){
+  const el=document.getElementById('picker-cats');
+  let h=`<button class="cat-filter-btn ${pickerCat===null?'active':''}" onclick="pickerCat=null;renderPickerCats();renderPicker()">全部</button>`;
+  categories.forEach(c=>{h+=`<button class="cat-filter-btn ${pickerCat===c.id?'active':''}" onclick="pickerCat='${c.id}';renderPickerCats();renderPicker()">${esc(c.name)}</button>`;});
+  el.innerHTML=h;
+}
+function renderPicker(){
+  const q=document.getElementById('picker-search').value.trim().toLowerCase();
+  let list=recipes.filter(r=>{if(q&&!r.name.toLowerCase().includes(q)&&!(r.ingredients||[]).some(i=>i.name.toLowerCase().includes(q)))return false;if(pickerCat&&r.category!==pickerCat)return false;return true;});
+  const el=document.getElementById('picker-list');
+  if(!list.length){el.innerHTML='<div style="padding:20px;text-align:center;color:var(--text-light)">沒有食譜</div>';return;}
+  el.innerHTML=list.map(r=>{const cat=getCat(r.category);return`<div class="picker-item" onclick="pickRecipe('${r.id}')">
+    <div><div class="pi-name">${esc(r.name)}</div><div class="pi-cat"><span class="cat-tag" style="background:${cat.color};font-size:11px;">${esc(cat.name)}</span></div></div>
+    <div style="font-size:20px;color:var(--primary);">+</div></div>`;}).join('');
+}
+function pickRecipe(id){if(!pickerDay)return;const day=getDayPlan(pickerDay.wk,pickerDay.dk);if(!day[pickerDay.slot])day[pickerDay.slot]=[];day[pickerDay.slot].push(id);saveToCloud();closeModal('modal-picker');renderPlanner();}
+
+// ========== SHOPPING DATA (localStorage) ==========
+function shopDataKey(){return'mp_shopdata_'+weekKey(shopWeekStart);}
+function getShopData(){try{return JSON.parse(localStorage.getItem(shopDataKey()))||{};}catch(e){return{};}}
+function saveShopField(itemKey,field,value){
+  const data=getShopData();if(!data[itemKey])data[itemKey]={};
+  data[itemKey][field]=value;
+  localStorage.setItem(shopDataKey(),JSON.stringify(data));
+  recalcTotals();
+}
+
+// ========== SHOPPING ==========
+function changeShopWeek(dir){shopWeekStart=new Date(shopWeekStart);shopWeekStart.setDate(shopWeekStart.getDate()+dir*7);renderShopping();}
+
+function renderShopping(){
+  const wk=weekKey(shopWeekStart);const plan=weekPlans[wk]||{};
+  const ingMap={};const condMap={};let mealCount=0;
+  DAY_KEYS.forEach(dk=>{const day=plan[dk];if(!day)return;MEAL_SLOTS.forEach(slot=>{(day[slot.key]||[]).forEach(rid=>{const r=recipes.find(x=>x.id===rid);if(!r)return;mealCount++;
+    (r.ingredients||[]).forEach(ing=>{if(!ing.name.trim())return;const key=ing.name.trim();if(!ingMap[key])ingMap[key]={amounts:[],from:[]};if(ing.amount)ingMap[key].amounts.push(ing.amount);if(!ingMap[key].from.includes(r.name))ingMap[key].from.push(r.name);});
+    normConds(r.condiments).forEach(c=>{if(!c.name.trim())return;const key=c.name.trim();if(!condMap[key])condMap[key]={amounts:[],from:[]};if(c.amount)condMap[key].amounts.push(c.amount);if(!condMap[key].from.includes(r.name))condMap[key].from.push(r.name);});
+  });});});
+
+  const wend=new Date(shopWeekStart);wend.setDate(wend.getDate()+6);
+  document.getElementById('shop-week-label').textContent=`${fmtDate(shopWeekStart)} - ${fmtDate(wend)}`;
+  document.getElementById('shop-summary').textContent=`共 ${mealCount} 餐`;
+  const container=document.getElementById('shop-content');
+  const ingKeys=Object.keys(ingMap).sort();const condKeys=Object.keys(condMap).sort();
+  if(!ingKeys.length&&!condKeys.length){container.innerHTML='<div class="shop-list"><div class="shop-empty">本週還沒排菜單，沒有需要購買的食材。<br>請先到「週菜單」頁面排定料理。</div></div>';return;}
+
+  const shopData=getShopData();
+  let html='';
+
+  // Ingredients section
+  if(ingKeys.length){
+    html+='<div class="shop-list"><div class="shop-section-title"><span>食材</span><span class="subtotal" id="ing-subtotal"></span></div>';
+    html+=ingKeys.map(k=>{
+      const m=ingMap[k];const amt=m.amounts.length?aggregateAmounts(m.amounts):'';
+      const sk='i:'+k;const sd=shopData[sk]||{};
+      const ic=sd.checked||false;
+      return`<div class="shop-item ${ic?'checked':''}">
+        <input type="checkbox" ${ic?'checked':''} onchange="saveShopField('${esc4attr(sk)}','checked',this.checked);this.parentElement.classList.toggle('checked',this.checked)">
+        <div class="item-info">
+          <div class="item-name">${esc(k)}${amt?' <span class="item-amt">('+esc(amt)+')</span>':''}</div>
+          <div class="item-from">${m.from.map(esc).join(', ')}</div>
+        </div>
+        <div class="shop-input-group"><span class="shop-input-label">實購</span><input class="shop-input" placeholder="-" value="${esc(sd.qty||'')}" onchange="saveShopField('${esc4attr(sk)}','qty',this.value)"></div>
+        <div class="shop-input-group"><span class="shop-input-label">金額</span><div class="shop-price-group"><span>$</span><input class="shop-input shop-price" type="number" min="0" placeholder="0" value="${sd.price||''}" onchange="saveShopField('${esc4attr(sk)}','price',this.value)"></div></div>
+      </div>`;
+    }).join('');
+    html+='</div>';
+  }
+
+  // Condiments section
+  if(condKeys.length){
+    html+='<div class="shop-list"><div class="shop-section-title"><span>佐料（請確認家中存量）</span><span class="subtotal" id="cond-subtotal"></span></div>';
+    html+=condKeys.map(k=>{
+      const m=condMap[k];const amt=m.amounts.length?aggregateAmounts(m.amounts):'';
+      const sk='c:'+k;const sd=shopData[sk]||{};
+      const ic=sd.checked||false;
+      return`<div class="shop-item ${ic?'checked':''}">
+        <input type="checkbox" ${ic?'checked':''} onchange="saveShopField('${esc4attr(sk)}','checked',this.checked);this.parentElement.classList.toggle('checked',this.checked)">
+        <div class="item-info">
+          <div class="item-name">${esc(k)}${amt?' <span class="item-amt">('+esc(amt)+')</span>':''}</div>
+          <div class="item-from">${m.from.map(esc).join(', ')}</div>
+        </div>
+        <div class="shop-input-group"><span class="shop-input-label">實購</span><input class="shop-input" placeholder="-" value="${esc(sd.qty||'')}" onchange="saveShopField('${esc4attr(sk)}','qty',this.value)"></div>
+        <div class="shop-input-group"><span class="shop-input-label">金額</span><div class="shop-price-group"><span>$</span><input class="shop-input shop-price" type="number" min="0" placeholder="0" value="${sd.price||''}" onchange="saveShopField('${esc4attr(sk)}','price',this.value)"></div></div>
+      </div>`;
+    }).join('');
+    html+='</div>';
+  }
+
+  // Grand total bar
+  html+='<div class="shop-grand-total"><span class="gt-item" id="gt-ing"></span><span class="gt-item" id="gt-cond"></span><span class="gt-total" id="gt-total"></span></div>';
+
+  container.innerHTML=html;
+  recalcTotals();
+}
+
+function esc4attr(s){return s.replace(/'/g,"\\'").replace(/"/g,'&quot;');}
+
+function recalcTotals(){
+  const shopData=getShopData();
+  let ingTotal=0,condTotal=0;
+  for(const[k,v]of Object.entries(shopData)){
+    const p=parseFloat(v.price)||0;
+    if(k.startsWith('i:'))ingTotal+=p;
+    else if(k.startsWith('c:'))condTotal+=p;
+  }
+  const ingEl=document.getElementById('ing-subtotal');
+  const condEl=document.getElementById('cond-subtotal');
+  const gtIng=document.getElementById('gt-ing');
+  const gtCond=document.getElementById('gt-cond');
+  const gtTotal=document.getElementById('gt-total');
+  if(ingEl)ingEl.textContent='小計 $'+ingTotal;
+  if(condEl)condEl.textContent='小計 $'+condTotal;
+  if(gtIng)gtIng.textContent='食材 $'+ingTotal;
+  if(gtCond)gtCond.textContent='佐料 $'+condTotal;
+  if(gtTotal)gtTotal.textContent='總計 $'+(ingTotal+condTotal);
+}
+
+function copyShoppingList(){
+  const wk=weekKey(shopWeekStart);const plan=weekPlans[wk]||{};const ingMap={};const condMap={};
+  DAY_KEYS.forEach(dk=>{const day=plan[dk];if(!day)return;MEAL_SLOTS.forEach(slot=>{(day[slot.key]||[]).forEach(rid=>{const r=recipes.find(x=>x.id===rid);if(!r)return;
+    (r.ingredients||[]).forEach(ing=>{if(!ing.name.trim())return;const key=ing.name.trim();if(!ingMap[key])ingMap[key]=[];if(ing.amount)ingMap[key].push(ing.amount);});
+    normConds(r.condiments).forEach(c=>{if(!c.name.trim())return;const key=c.name.trim();if(!condMap[key])condMap[key]=[];if(c.amount)condMap[key].push(c.amount);});
+  });});});
+  const wend=new Date(shopWeekStart);wend.setDate(wend.getDate()+6);
+  const ingLines=Object.keys(ingMap).sort().map(k=>{const a=ingMap[k].length?` (${aggregateAmounts(ingMap[k])})`:'';return`[ ] ${k}${a}`;});
+  let text=`購物清單 ${fmtDate(shopWeekStart)}-${fmtDate(wend)}\n${'='.repeat(30)}\n`;
+  if(ingLines.length)text+=`食材\n${ingLines.join('\n')}\n`;
+  const condKeys=Object.keys(condMap).sort();
+  if(condKeys.length){
+    const condLines=condKeys.map(k=>{const a=condMap[k].length?' ('+aggregateAmounts(condMap[k])+')':'';return`[ ] ${k}${a}`;});
+    text+=`\n佐料\n${condLines.join('\n')}`;
+  }
+  navigator.clipboard.writeText(text).then(()=>alert('已複製到剪貼簿！')).catch(()=>{const ta=document.createElement('textarea');ta.value=text;document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);alert('已複製到剪貼簿！');});
+}
+
+// ========== EXPORT/IMPORT ==========
+function exportData(){
+  const data={recipes,weekPlans,categories,condiments,version:3,exportedAt:new Date().toISOString()};
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`MealPrep_backup_${new Date().toISOString().slice(0,10)}.json`;a.click();
+}
+function importData(event){
+  const file=event.target.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=function(e){try{
+    const data=JSON.parse(e.target.result);if(!data.recipes||!Array.isArray(data.recipes))throw new Error('Invalid');
+    if(!confirm(`即將匯入 ${data.recipes.length} 個食譜，這會覆蓋目前所有資料，確定嗎？`))return;
+    recipes=data.recipes;weekPlans=data.weekPlans||{};
+    if(data.categories)categories=data.categories;if(data.condiments)condiments=data.condiments;
+    saveToCloud();showPage('recipes');alert('匯入成功！');
+  }catch(err){alert('匯入失敗：檔案格式不正確');}};
+  reader.readAsText(file);event.target.value='';
+}
+
+// ========== MODAL CLICK ==========
+document.querySelectorAll('.modal-overlay').forEach(overlay=>{
+  overlay.addEventListener('click',e=>{if(e.target!==overlay)return;if(overlay.id==='modal-recipe')closeRecipeModal();else overlay.classList.remove('show');});
+});
+
+// ========== INIT ==========
+if(syncCode){
+  document.getElementById('sync-code-input').value=syncCode;
+  docRef().get().then(snap=>{
+    if(snap.exists){enterApp();}
+    else{recipes=[];weekPlans={};saveToCloud();enterApp();}
+  }).catch(()=>{alert('無法連線到雲端，請確認網路連線。');});
+} else {
+  document.getElementById('page-sync').classList.add('active');
+}
+</script>
+</body>
+</html>
