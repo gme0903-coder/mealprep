@@ -183,6 +183,18 @@ nav .tabs button.active,nav .tabs button:hover{background:rgba(255,255,255,.2);c
 .nav-dropdown button:hover{background:var(--tag-bg);}
 .nav-dropdown button:last-child{color:var(--danger);}
 
+/* AI IMPORT */
+.ai-step{margin-bottom:16px;}
+.ai-hint{font-size:12px;color:var(--text-light);margin-top:4px;line-height:1.5;}
+.ai-spinner{display:inline-block;width:24px;height:24px;border:3px solid var(--border);border-top-color:var(--primary);border-radius:50%;animation:spin .8s linear infinite;margin-bottom:12px;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.ai-preview-card{background:var(--tag-bg);border-radius:var(--radius);padding:16px;margin-bottom:12px;}
+.ai-preview-card h3{color:var(--primary);margin-bottom:12px;font-size:18px;}
+.ai-key-bar{display:flex;gap:8px;align-items:center;margin-bottom:12px;}
+.ai-key-bar input{flex:1;}
+.ai-key-bar .btn{flex-shrink:0;}
+.ai-change-key{font-size:12px;color:var(--primary);cursor:pointer;text-decoration:underline;margin-top:4px;}
+
 @media print{nav,.nav-menu-wrap,.btn,.add-meal-btn,.remove-meal,.shop-week-nav,.shop-input-group,.shop-price-group{display:none!important;}.page{display:block!important;max-width:100%;}.page:not(.print-target){display:none!important;}.shop-list{box-shadow:none;border:1px solid #ccc;}}
 </style>
 </head>
@@ -225,6 +237,7 @@ nav .tabs button.active,nav .tabs button:hover{background:rgba(255,255,255,.2);c
   <div class="recipe-toolbar">
     <input type="text" id="search-input" placeholder="搜尋食譜名稱或食材..." oninput="renderRecipes()">
     <button class="btn btn-primary" onclick="openAddRecipe()">+ 新增食譜</button>
+    <button class="btn btn-outline" onclick="openAIImport()">AI 匯入</button>
   </div>
   <div class="cat-filters" id="cat-filters"></div>
   <div class="ing-filters" id="ing-filters"></div>
@@ -334,6 +347,51 @@ nav .tabs button.active,nav .tabs button:hover{background:rgba(255,255,255,.2);c
   </div>
 </div>
 
+
+<!-- MODAL: AI IMPORT -->
+<div class="modal-overlay" id="modal-ai">
+  <div class="modal">
+    <h2>AI 匯入食譜</h2>
+
+    <!-- API Key Setup -->
+    <div id="ai-key-section">
+      <div class="ai-key-bar">
+        <input type="password" id="ai-api-key" placeholder="貼上 Gemini API Key (AIza...)">
+        <button class="btn btn-primary btn-sm" onclick="saveGeminiKey()">儲存</button>
+      </div>
+      <div class="ai-hint">到 aistudio.google.com → Get API Key → 免費取得</div>
+    </div>
+
+    <!-- Input Area -->
+    <div id="ai-input-area" style="display:none;">
+      <div class="form-group">
+        <label>影片/文章連結（選填）</label>
+        <input type="text" id="ai-url" placeholder="YouTube、Reels、抖音、部落格...任何連結">
+      </div>
+      <div class="form-group">
+        <label>內容文字</label>
+        <textarea id="ai-text" placeholder="從影片描述、字幕、文案、部落格...複製貼上任何包含食譜的文字內容" style="min-height:160px;"></textarea>
+        <div class="ai-hint">支援任何來源：YouTube 描述欄、IG Reels 文字、抖音文案、小紅書、部落格文章、甚至手抄筆記</div>
+      </div>
+      <div class="modal-actions" style="justify-content:space-between;">
+        <div><span class="ai-change-key" onclick="showKeySetup()">更換 API Key</span></div>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-outline" onclick="closeModal('modal-ai')">取消</button>
+          <button class="btn btn-primary" onclick="analyzeRecipe()" id="ai-analyze-btn">分析食譜</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Loading -->
+    <div id="ai-loading" style="display:none;text-align:center;padding:40px 20px;">
+      <div class="ai-spinner"></div>
+      <div style="font-size:15px;font-weight:500;">AI 分析中，請稍候...</div>
+    </div>
+
+    <!-- Preview -->
+    <div id="ai-preview" style="display:none;"></div>
+  </div>
+</div>
 
 <!-- FIREBASE SDK -->
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
@@ -854,6 +912,176 @@ function importData(event){
 function toggleNavMenu(){document.getElementById('nav-dropdown').classList.toggle('show');}
 function closeNavMenu(){document.getElementById('nav-dropdown').classList.remove('show');}
 document.addEventListener('click',e=>{const wrap=document.getElementById('nav-menu-wrap');if(wrap&&!wrap.contains(e.target))closeNavMenu();});
+
+// ========== AI IMPORT ==========
+const GEMINI_KEY_STORAGE='mp_gemini_key';
+
+function openAIImport(){
+  const key=localStorage.getItem(GEMINI_KEY_STORAGE);
+  if(key){
+    document.getElementById('ai-key-section').style.display='none';
+    document.getElementById('ai-input-area').style.display='block';
+  }else{
+    document.getElementById('ai-key-section').style.display='block';
+    document.getElementById('ai-input-area').style.display='none';
+  }
+  document.getElementById('ai-preview').style.display='none';
+  document.getElementById('ai-loading').style.display='none';
+  document.getElementById('ai-url').value='';
+  document.getElementById('ai-text').value='';
+  openModal('modal-ai');
+}
+
+function saveGeminiKey(){
+  const key=document.getElementById('ai-api-key').value.trim();
+  if(!key){alert('請輸入 API Key');return;}
+  localStorage.setItem(GEMINI_KEY_STORAGE,key);
+  document.getElementById('ai-key-section').style.display='none';
+  document.getElementById('ai-input-area').style.display='block';
+}
+
+function showKeySetup(){
+  document.getElementById('ai-api-key').value=localStorage.getItem(GEMINI_KEY_STORAGE)||'';
+  document.getElementById('ai-key-section').style.display='block';
+}
+
+async function analyzeRecipe(){
+  const url=document.getElementById('ai-url').value.trim();
+  const text=document.getElementById('ai-text').value.trim();
+  if(!text&&!url){alert('請至少貼上連結或內容文字');return;}
+  const key=localStorage.getItem(GEMINI_KEY_STORAGE);
+  if(!key){alert('請先設定 Gemini API Key');return;}
+
+  document.getElementById('ai-input-area').style.display='none';
+  document.getElementById('ai-loading').style.display='block';
+
+  try{
+    let content='';
+    if(url)content+='來源連結: '+url+'\n\n';
+    if(text)content+=text;
+
+    const catNames=categories.map(c=>c.name).join('、');
+    const condNames=condiments.join('、');
+
+    const prompt=`你是一個料理食譜分析助手。請從以下內容中提取食譜資訊，以 JSON 格式回傳。
+
+要求：
+1. name: 料理名稱（簡潔）
+2. ingredients: 食材陣列，每項 {name, amount}（amount 包含數量和單位，如 "2顆"、"300g"、"半根"）
+3. condiments: 佐料/調味料陣列，每項 {name, amount}
+4. steps: 料理步驟文字，每步一行，前面加編號（1. 2. 3. ...）
+5. category_suggest: 從以下分類選最合適的一個：${catNames}
+
+區分食材和佐料的原則：
+- 食材 = 主要材料（肉類、蔬菜、海鮮、蛋、豆腐、麵條、米飯等）
+- 佐料 = 調味料（鹽、糖、醬油、醋、油、胡椒、味醂、米酒等）
+- 目前已有的佐料清單供參考：${condNames}
+
+注意：
+- 如果內容不像食譜，仍盡量推測可能的料理並產出結構化資料
+- 份量盡量保留原文描述，沒提到就寫 "適量"
+- 只回傳 JSON，不要其他文字或 markdown 標記
+
+JSON 格式：
+{"name":"","ingredients":[{"name":"","amount":""}],"condiments":[{"name":"","amount":""}],"steps":"","category_suggest":""}
+
+以下是要分析的內容：
+${content}`;
+
+    const resp=await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key='+encodeURIComponent(key),{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({contents:[{parts:[{text:prompt}]}],generationConfig:{temperature:0.2}})
+    });
+
+    if(!resp.ok){
+      const err=await resp.json().catch(()=>({}));
+      throw new Error(err.error?.message||'API 回應錯誤 ('+resp.status+')');
+    }
+
+    const data=await resp.json();
+    const respText=data.candidates?.[0]?.content?.parts?.[0]?.text||'';
+    let jsonStr=respText;
+    const m=respText.match(/```(?:json)?\s*([\s\S]*?)```/);
+    if(m)jsonStr=m[1];
+    const result=JSON.parse(jsonStr.trim());
+
+    showAIPreview(result,url);
+  }catch(e){
+    console.error('AI analyze error:',e);
+    alert('分析失敗：'+e.message);
+    document.getElementById('ai-input-area').style.display='block';
+    document.getElementById('ai-loading').style.display='none';
+  }
+}
+
+function showAIPreview(result,url){
+  document.getElementById('ai-loading').style.display='none';
+  const preview=document.getElementById('ai-preview');
+  window._aiResult=result;
+  window._aiUrl=url;
+
+  const ings=(result.ingredients||[]).map(i=>`<tr><td>${esc(i.name)}</td><td>${esc(i.amount)}</td></tr>`).join('');
+  const conds=(result.condiments||[]).map(c=>`<tr><td>${esc(c.name)}</td><td>${esc(c.amount)}</td></tr>`).join('');
+
+  preview.innerHTML=`
+    <div class="ai-preview-card">
+      <h3>${esc(result.name||'未命名食譜')}</h3>
+      <div class="form-group"><label>食譜名稱（可修改）</label><input type="text" id="ai-r-name" value="${esc(result.name||'')}"></div>
+      <div style="margin-bottom:12px;"><span class="cat-tag" style="background:var(--primary);">${esc(result.category_suggest||'')}</span></div>
+      <div class="vr-section"><h4>食材</h4>
+        ${ings?'<table class="vr-ing-table">'+ings+'</table>':'<p style="color:var(--text-light)">未偵測到食材</p>'}
+      </div>
+      <div class="vr-section"><h4>佐料</h4>
+        ${conds?'<table class="vr-ing-table">'+conds+'</table>':'<p style="color:var(--text-light)">未偵測到佐料</p>'}
+      </div>
+      <div class="vr-section"><h4>料理步驟</h4><div class="vr-steps">${esc(result.steps||'')}</div></div>
+      ${url?'<div class="vr-section"><h4>來源連結</h4><a class="vr-link" href="'+esc(url)+'" target="_blank">'+esc(url)+'</a></div>':''}
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="resetAIImport()">重新分析</button>
+      <button class="btn btn-outline" onclick="closeModal('modal-ai')">取消</button>
+      <button class="btn btn-primary" onclick="saveAIRecipe()">加入食譜庫</button>
+    </div>`;
+  preview.style.display='block';
+}
+
+function resetAIImport(){
+  document.getElementById('ai-preview').style.display='none';
+  document.getElementById('ai-input-area').style.display='block';
+}
+
+function saveAIRecipe(){
+  const result=window._aiResult;
+  if(!result)return;
+  const name=(document.getElementById('ai-r-name')?.value||'').trim()||result.name||'未命名食譜';
+
+  // Match category
+  let catId=categories[0]?.id||'';
+  const suggest=result.category_suggest||'';
+  const matchCat=categories.find(c=>c.name===suggest);
+  if(matchCat)catId=matchCat.id;
+
+  // Add new condiments to global list
+  (result.condiments||[]).forEach(c=>{
+    if(c.name&&!condiments.includes(c.name))condiments.push(c.name);
+  });
+
+  recipes.push({
+    id:uid(),
+    name,
+    category:catId,
+    ingredients:result.ingredients||[],
+    condiments:result.condiments||[],
+    steps:result.steps||'',
+    link:window._aiUrl||''
+  });
+
+  saveToCloud();
+  closeModal('modal-ai');
+  renderRecipes();
+  alert('食譜「'+name+'」已加入食譜庫！');
+}
 
 // ========== MODAL CLICK ==========
 document.querySelectorAll('.modal-overlay').forEach(overlay=>{
