@@ -143,6 +143,34 @@ nav .tabs button.active,nav .tabs button:hover{background:rgba(255,255,255,.2);c
 .shop-grand-total{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:16px 20px;display:flex;justify-content:flex-end;align-items:center;gap:20px;font-size:16px;flex-wrap:wrap;}
 .shop-grand-total .gt-item{color:var(--text-light);font-size:14px;}
 .shop-grand-total .gt-total{font-weight:700;font-size:20px;color:var(--primary-dark);}
+.shop-divider{margin:28px 0 14px;padding:0 4px;display:flex;align-items:center;gap:12px;}
+.shop-divider:first-child{margin-top:0;}
+.shop-divider h3{font-size:17px;font-weight:700;white-space:nowrap;}
+.shop-divider .shop-divider-hint{font-size:12px;color:var(--text-light);font-weight:400;}
+.shop-divider hr{flex:1;border:none;border-top:1px solid var(--border);}
+.shop-ref-item{padding:10px 16px;display:flex;align-items:center;gap:10px;border-bottom:1px solid #f0ebe5;font-size:14px;flex-wrap:wrap;}
+.shop-ref-item:last-child{border-bottom:none;}
+.shop-ref-item.added{background:#f0faf0;}
+.shop-ref-item .item-info{flex:1;min-width:120px;}
+.shop-ref-item .item-name{font-weight:500;}
+.shop-ref-item .item-amt{color:var(--text-light);font-weight:400;}
+.shop-ref-item .item-from{font-size:12px;color:var(--text-light);margin-top:2px;}
+.buy-qty-input{width:100px;padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:13px;text-align:center;background:#fff;transition:.2s;flex-shrink:0;}
+.buy-qty-input:focus{outline:none;border-color:var(--primary);}
+.btn-add-buy{padding:5px 12px;border:1px solid var(--primary);border-radius:6px;font-size:12px;cursor:pointer;transition:.2s;white-space:nowrap;flex-shrink:0;}
+.btn-add-buy.not-added{background:#fff;color:var(--primary);}
+.btn-add-buy.not-added:hover{background:var(--tag-bg);}
+.btn-add-buy.is-added{background:var(--success);color:#fff;border-color:var(--success);}
+.shop-final-empty{padding:30px;text-align:center;color:var(--text-light);font-size:14px;}
+.shop-final-item{padding:10px 16px;display:flex;align-items:center;gap:10px;border-bottom:1px solid #f0ebe5;font-size:14px;flex-wrap:wrap;}
+.shop-final-item:last-child{border-bottom:none;}
+.shop-final-item input[type=checkbox]{width:18px;height:18px;accent-color:var(--primary);cursor:pointer;flex-shrink:0;}
+.shop-final-item.checked .final-item-name{text-decoration:line-through;color:var(--text-light);}
+.shop-final-item .final-item-info{flex:1;min-width:120px;}
+.shop-final-item .final-item-name{font-weight:500;}
+.shop-final-item .final-item-qty{color:var(--text-light);font-size:13px;}
+.shop-final-remove{background:none;border:none;color:var(--danger);cursor:pointer;font-size:16px;padding:4px;flex-shrink:0;opacity:.6;transition:.2s;}
+.shop-final-remove:hover{opacity:1;}
 
 /* VIEW RECIPE */
 .view-recipe h2{margin-bottom:4px;}
@@ -195,7 +223,7 @@ nav .tabs button.active,nav .tabs button:hover{background:rgba(255,255,255,.2);c
 .ai-key-bar .btn{flex-shrink:0;}
 .ai-change-key{font-size:12px;color:var(--primary);cursor:pointer;text-decoration:underline;margin-top:4px;}
 
-@media print{nav,.nav-menu-wrap,.btn,.add-meal-btn,.remove-meal,.shop-week-nav,.shop-input-group,.shop-price-group{display:none!important;}.page{display:block!important;max-width:100%;}.page:not(.print-target){display:none!important;}.shop-list{box-shadow:none;border:1px solid #ccc;}}
+@media print{nav,.nav-menu-wrap,.btn,.add-meal-btn,.remove-meal,.shop-week-nav,.shop-input-group,.shop-price-group,.btn-add-buy,.buy-qty-input,.shop-final-remove{display:none!important;}.page{display:block!important;max-width:100%;}.page:not(.print-target){display:none!important;}.shop-list{box-shadow:none;border:1px solid #ccc;}}
 </style>
 </head>
 <body>
@@ -740,7 +768,7 @@ function renderPlanner(){
       MEAL_SLOTS.forEach(slot=>{
         const meals=(day[slot.key]||[]).map(rid=>recipes.find(r=>r.id===rid)).filter(Boolean);
         html+=`<div class="day-section"><div class="day-section-title">${slot.label}</div>`;
-        meals.forEach(r=>{html+=`<div class="day-meal"><span title="${esc(r.name)}">${esc(r.name)}</span><button class="remove-meal" onclick="removeMeal('${wk}','${dk}','${slot.key}','${r.id}')">x</button></div>`;});
+        meals.forEach(r=>{html+=`<div class="day-meal"><span title="${esc(r.name)}" style="cursor:pointer;" onclick="viewRecipe('${r.id}')">${esc(r.name)}</span><button class="remove-meal" onclick="removeMeal('${wk}','${dk}','${slot.key}','${r.id}')">x</button></div>`;});
         html+=`<button class="add-meal-btn" onclick="openPicker('${wk}','${dk}','${slot.key}')">+</button></div>`;
       });
       html+=`<textarea class="day-notes" placeholder="備註..." onchange="saveNotes('${wk}','${dk}',this.value)">${esc(day.notes||'')}</textarea></div>`;
@@ -802,48 +830,90 @@ function renderShopping(){
   const shopData=getShopData();
   let html='';
 
-  // Ingredients section
+  // ===== UPPER: Menu Summary =====
+  html+='<div class="shop-divider"><h3>菜單食材匯整</h3><span class="shop-divider-hint">輸入實際購買量，點「加入」放進下方購買清單</span><hr></div>';
+
   if(ingKeys.length){
-    html+='<div class="shop-list"><div class="shop-section-title"><span>食材</span><span class="subtotal" id="ing-subtotal"></span></div>';
+    html+='<div class="shop-list"><div class="shop-section-title"><span>食材</span></div>';
     html+=ingKeys.map(k=>{
       const m=ingMap[k];const amt=m.amounts.length?aggregateAmounts(m.amounts):'';
       const sk='i:'+k;const sd=shopData[sk]||{};
-      const ic=sd.checked||false;
-      return`<div class="shop-item ${ic?'checked':''}">
-        <input type="checkbox" ${ic?'checked':''} onchange="saveShopField('${esc4attr(sk)}','checked',this.checked);this.parentElement.classList.toggle('checked',this.checked)">
+      const added=!!sd.buy;
+      return`<div class="shop-ref-item ${added?'added':''}">
         <div class="item-info">
           <div class="item-name">${esc(k)}${amt?' <span class="item-amt">('+esc(amt)+')</span>':''}</div>
           <div class="item-from">${m.from.map(esc).join(', ')}</div>
         </div>
-        <div class="shop-input-group"><span class="shop-input-label">實購</span><input class="shop-input" placeholder="-" value="${esc(sd.qty||'')}" onchange="saveShopField('${esc4attr(sk)}','qty',this.value)"></div>
-        <div class="shop-input-group"><span class="shop-input-label">金額</span><div class="shop-price-group"><span>$</span><input class="shop-input shop-price" type="number" min="0" placeholder="0" value="${sd.price||''}" onchange="saveShopField('${esc4attr(sk)}','price',this.value)"></div></div>
+        <input class="buy-qty-input" placeholder="購買量" value="${esc(sd.buyQty||'')}" onchange="saveBuyQty('${esc4attr(sk)}',this.value)">
+        <button class="btn-add-buy ${added?'is-added':'not-added'}" onclick="toggleBuy('${esc4attr(sk)}')">${added?'已加入 \u2713':'+ 加入'}</button>
       </div>`;
     }).join('');
     html+='</div>';
   }
 
-  // Condiments section
   if(condKeys.length){
-    html+='<div class="shop-list"><div class="shop-section-title"><span>佐料（請確認家中存量）</span><span class="subtotal" id="cond-subtotal"></span></div>';
+    html+='<div class="shop-list"><div class="shop-section-title"><span>佐料（請確認家中存量）</span></div>';
     html+=condKeys.map(k=>{
       const m=condMap[k];const amt=m.amounts.length?aggregateAmounts(m.amounts):'';
       const sk='c:'+k;const sd=shopData[sk]||{};
-      const ic=sd.checked||false;
-      return`<div class="shop-item ${ic?'checked':''}">
-        <input type="checkbox" ${ic?'checked':''} onchange="saveShopField('${esc4attr(sk)}','checked',this.checked);this.parentElement.classList.toggle('checked',this.checked)">
+      const added=!!sd.buy;
+      return`<div class="shop-ref-item ${added?'added':''}">
         <div class="item-info">
           <div class="item-name">${esc(k)}${amt?' <span class="item-amt">('+esc(amt)+')</span>':''}</div>
           <div class="item-from">${m.from.map(esc).join(', ')}</div>
         </div>
-        <div class="shop-input-group"><span class="shop-input-label">實購</span><input class="shop-input" placeholder="-" value="${esc(sd.qty||'')}" onchange="saveShopField('${esc4attr(sk)}','qty',this.value)"></div>
-        <div class="shop-input-group"><span class="shop-input-label">金額</span><div class="shop-price-group"><span>$</span><input class="shop-input shop-price" type="number" min="0" placeholder="0" value="${sd.price||''}" onchange="saveShopField('${esc4attr(sk)}','price',this.value)"></div></div>
+        <input class="buy-qty-input" placeholder="購買量" value="${esc(sd.buyQty||'')}" onchange="saveBuyQty('${esc4attr(sk)}',this.value)">
+        <button class="btn-add-buy ${added?'is-added':'not-added'}" onclick="toggleBuy('${esc4attr(sk)}')">${added?'已加入 \u2713':'+ 加入'}</button>
       </div>`;
     }).join('');
     html+='</div>';
   }
 
-  // Grand total bar
-  html+='<div class="shop-grand-total"><span class="gt-item" id="gt-ing"></span><span class="gt-item" id="gt-cond"></span><span class="gt-total" id="gt-total"></span></div>';
+  // ===== LOWER: Final Purchase List =====
+  html+='<div class="shop-divider" style="margin-top:36px;"><h3>最終購買清單</h3><hr></div>';
+
+  const buyIngKeys=ingKeys.filter(k=>(shopData['i:'+k]||{}).buy);
+  const buyCondKeys=condKeys.filter(k=>(shopData['c:'+k]||{}).buy);
+
+  if(!buyIngKeys.length&&!buyCondKeys.length){
+    html+='<div class="shop-list"><div class="shop-final-empty">尚未加入任何項目。<br>請從上方菜單匯整中選取需要購買的食材。</div></div>';
+  } else {
+    if(buyIngKeys.length){
+      html+='<div class="shop-list"><div class="shop-section-title"><span>食材</span><span class="subtotal" id="ing-subtotal"></span></div>';
+      html+=buyIngKeys.map(k=>{
+        const sk='i:'+k;const sd=shopData[sk]||{};
+        const ic=sd.checked||false;
+        return`<div class="shop-final-item ${ic?'checked':''}">
+          <input type="checkbox" ${ic?'checked':''} onchange="saveShopField('${esc4attr(sk)}','checked',this.checked);this.parentElement.classList.toggle('checked',this.checked)">
+          <div class="final-item-info">
+            <div class="final-item-name">${esc(k)}</div>
+            ${sd.buyQty?'<div class="final-item-qty">'+esc(sd.buyQty)+'</div>':''}
+          </div>
+          <div class="shop-input-group"><span class="shop-input-label">金額</span><div class="shop-price-group"><span>$</span><input class="shop-input shop-price" type="number" min="0" placeholder="0" value="${sd.price||''}" onchange="saveShopField('${esc4attr(sk)}','price',this.value)"></div></div>
+          <button class="shop-final-remove" onclick="removeBuy('${esc4attr(sk)}')" title="移除">\u2715</button>
+        </div>`;
+      }).join('');
+      html+='</div>';
+    }
+    if(buyCondKeys.length){
+      html+='<div class="shop-list"><div class="shop-section-title"><span>佐料</span><span class="subtotal" id="cond-subtotal"></span></div>';
+      html+=buyCondKeys.map(k=>{
+        const sk='c:'+k;const sd=shopData[sk]||{};
+        const ic=sd.checked||false;
+        return`<div class="shop-final-item ${ic?'checked':''}">
+          <input type="checkbox" ${ic?'checked':''} onchange="saveShopField('${esc4attr(sk)}','checked',this.checked);this.parentElement.classList.toggle('checked',this.checked)">
+          <div class="final-item-info">
+            <div class="final-item-name">${esc(k)}</div>
+            ${sd.buyQty?'<div class="final-item-qty">'+esc(sd.buyQty)+'</div>':''}
+          </div>
+          <div class="shop-input-group"><span class="shop-input-label">金額</span><div class="shop-price-group"><span>$</span><input class="shop-input shop-price" type="number" min="0" placeholder="0" value="${sd.price||''}" onchange="saveShopField('${esc4attr(sk)}','price',this.value)"></div></div>
+          <button class="shop-final-remove" onclick="removeBuy('${esc4attr(sk)}')" title="移除">\u2715</button>
+        </div>`;
+      }).join('');
+      html+='</div>';
+    }
+    html+='<div class="shop-grand-total"><span class="gt-item" id="gt-ing"></span><span class="gt-item" id="gt-cond"></span><span class="gt-total" id="gt-total"></span></div>';
+  }
 
   container.innerHTML=html;
   recalcTotals();
@@ -851,10 +921,31 @@ function renderShopping(){
 
 function esc4attr(s){return s.replace(/'/g,"\\'").replace(/"/g,'&quot;');}
 
+function saveBuyQty(sk,val){
+  const data=getShopData();if(!data[sk])data[sk]={};
+  data[sk].buyQty=val;
+  localStorage.setItem(shopDataKey(),JSON.stringify(data));
+}
+
+function toggleBuy(sk){
+  const data=getShopData();if(!data[sk])data[sk]={};
+  data[sk].buy=!data[sk].buy;
+  if(!data[sk].buy){data[sk].checked=false;data[sk].price='';}
+  localStorage.setItem(shopDataKey(),JSON.stringify(data));
+  renderShopping();
+}
+
+function removeBuy(sk){
+  const data=getShopData();if(data[sk]){data[sk].buy=false;data[sk].checked=false;data[sk].price='';}
+  localStorage.setItem(shopDataKey(),JSON.stringify(data));
+  renderShopping();
+}
+
 function recalcTotals(){
   const shopData=getShopData();
   let ingTotal=0,condTotal=0;
   for(const[k,v]of Object.entries(shopData)){
+    if(!v.buy)continue;
     const p=parseFloat(v.price)||0;
     if(k.startsWith('i:'))ingTotal+=p;
     else if(k.startsWith('c:'))condTotal+=p;
@@ -872,20 +963,20 @@ function recalcTotals(){
 }
 
 function copyShoppingList(){
-  const wk=weekKey(shopWeekStart);const plan=weekPlans[wk]||{};const ingMap={};const condMap={};
-  DAY_KEYS.forEach(dk=>{const day=plan[dk];if(!day)return;MEAL_SLOTS.forEach(slot=>{(day[slot.key]||[]).forEach(rid=>{const r=recipes.find(x=>x.id===rid);if(!r)return;
-    (r.ingredients||[]).forEach(ing=>{if(!ing.name.trim())return;const key=ing.name.trim();if(!ingMap[key])ingMap[key]=[];if(ing.amount)ingMap[key].push(ing.amount);});
-    normConds(r.condiments).forEach(c=>{if(!c.name.trim())return;const key=c.name.trim();if(!condMap[key])condMap[key]=[];if(c.amount)condMap[key].push(c.amount);});
-  });});});
+  const shopData=getShopData();
   const wend=new Date(shopWeekStart);wend.setDate(wend.getDate()+6);
-  const ingLines=Object.keys(ingMap).sort().map(k=>{const a=ingMap[k].length?` (${aggregateAmounts(ingMap[k])})`:'';return`[ ] ${k}${a}`;});
   let text=`購物清單 ${fmtDate(shopWeekStart)}-${fmtDate(wend)}\n${'='.repeat(30)}\n`;
-  if(ingLines.length)text+=`食材\n${ingLines.join('\n')}\n`;
-  const condKeys=Object.keys(condMap).sort();
-  if(condKeys.length){
-    const condLines=condKeys.map(k=>{const a=condMap[k].length?' ('+aggregateAmounts(condMap[k])+')':'';return`[ ] ${k}${a}`;});
-    text+=`\n佐料\n${condLines.join('\n')}`;
+  const buyIng=[];const buyCond=[];
+  for(const[k,v]of Object.entries(shopData)){
+    if(!v.buy)continue;
+    const name=k.substring(2);
+    const line=`[ ] ${name}${v.buyQty?' ('+v.buyQty+')':''}`;
+    if(k.startsWith('i:'))buyIng.push(line);
+    else if(k.startsWith('c:'))buyCond.push(line);
   }
+  if(buyIng.length)text+=`食材\n${buyIng.sort().join('\n')}\n`;
+  if(buyCond.length)text+=`\n佐料\n${buyCond.sort().join('\n')}`;
+  if(!buyIng.length&&!buyCond.length)text+='\n（尚未加入任何購買項目）';
   navigator.clipboard.writeText(text).then(()=>alert('已複製到剪貼簿！')).catch(()=>{const ta=document.createElement('textarea');ta.value=text;document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);alert('已複製到剪貼簿！');});
 }
 
