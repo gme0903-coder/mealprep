@@ -879,15 +879,25 @@ function renderShopping(){
   // ===== LOWER: Final Purchase List =====
   html+='<div class="shop-divider" style="margin-top:36px;"><h3>最終購買清單</h3><hr></div>';
 
+  // Extra manual items input
+  html+=`<div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;align-items:center;">
+    <input id="extra-item-name" style="flex:2;min-width:140px;padding:8px 12px;border:2px solid var(--border);border-radius:8px;font-size:14px;" placeholder="額外購買項目名稱">
+    <input id="extra-item-qty" style="flex:1;min-width:80px;padding:8px 12px;border:2px solid var(--border);border-radius:8px;font-size:14px;" placeholder="數量">
+    <button class="btn btn-primary btn-sm" onclick="addExtraItem()" style="white-space:nowrap;">+ 加入</button>
+  </div>`;
+
+  const extraKeys=Object.keys(shopData).filter(k=>k.startsWith('x:')&&shopData[k].buy);
   const allBuyKeys=[...ingKeys.map(k=>'i:'+k),...condKeys.map(k=>'c:'+k)].filter(sk=>(shopData[sk]||{}).buy);
 
-  if(!allBuyKeys.length){
-    html+='<div class="shop-list"><div class="shop-final-empty">尚未加入任何項目。<br>請從上方菜單匯整中選取需要購買的食材。</div></div>';
+  const allKeys=[...allBuyKeys,...extraKeys];
+  if(!allKeys.length){
+    html+='<div class="shop-list"><div class="shop-final-empty">尚未加入任何項目。<br>請從上方菜單匯整中選取需要購買的食材，或手動加入額外購買項目。</div></div>';
   } else {
-    const storeGroups={market:[],pxmart:[],other:[]};
+    const storeGroups={market:[],pxmart:[],other:[],extra:[]};
     allBuyKeys.forEach(sk=>{const sd=shopData[sk]||{};const s=sd.store||'other';if(storeGroups[s])storeGroups[s].push(sk);else storeGroups.other.push(sk);});
-    const storeLabels={market:'市場',pxmart:'全聯',other:'未指定場所'};
-    const storeOrder=['market','pxmart','other'];
+    extraKeys.forEach(sk=>storeGroups.extra.push(sk));
+    const storeLabels={market:'市場',pxmart:'全聯',other:'未指定場所',extra:'額外購買'};
+    const storeOrder=['market','pxmart','other','extra'];
     storeOrder.forEach(storeKey=>{
       const items=storeGroups[storeKey];if(!items.length)return;
       html+=`<div class="shop-list"><div class="shop-section-title"><span>${storeLabels[storeKey]}</span><span class="subtotal" id="subtotal-${storeKey}"></span></div>`;
@@ -904,7 +914,7 @@ function renderShopping(){
       }).join('');
       html+='</div>';
     });
-    html+='<div class="shop-grand-total"><span class="gt-item" id="gt-market"></span><span class="gt-item" id="gt-pxmart"></span><span class="gt-item" id="gt-other"></span><span class="gt-total" id="gt-total"></span></div>';
+    html+='<div class="shop-grand-total"><span class="gt-item" id="gt-market"></span><span class="gt-item" id="gt-pxmart"></span><span class="gt-item" id="gt-other"></span><span class="gt-item" id="gt-extra"></span><span class="gt-total" id="gt-total"></span></div>';
   }
 
   container.innerHTML=html;
@@ -936,23 +946,40 @@ function toggleBuy(sk){
 }
 
 function removeBuy(sk){
-  const data=getShopData();if(data[sk]){data[sk].buy=false;data[sk].checked=false;data[sk].price='';data[sk].store='';}
+  const data=getShopData();
+  if(sk.startsWith('x:')){delete data[sk];}
+  else if(data[sk]){data[sk].buy=false;data[sk].checked=false;data[sk].price='';data[sk].store='';}
+  localStorage.setItem(shopDataKey(),JSON.stringify(data));
+  renderShopping();
+}
+
+function addExtraItem(){
+  const nameEl=document.getElementById('extra-item-name');
+  const qtyEl=document.getElementById('extra-item-qty');
+  const name=(nameEl?nameEl.value:'').trim();
+  if(!name){alert('請輸入項目名稱');return;}
+  const qty=(qtyEl?qtyEl.value:'').trim();
+  const data=getShopData();
+  const sk='x:'+name;
+  if(data[sk]&&data[sk].buy){alert('「'+name+'」已存在於額外購買清單中');return;}
+  data[sk]={buy:true,buyQty:qty,store:'',checked:false,price:''};
   localStorage.setItem(shopDataKey(),JSON.stringify(data));
   renderShopping();
 }
 
 function recalcTotals(){
   const shopData=getShopData();
-  const storeTotals={market:0,pxmart:0,other:0};
+  const storeTotals={market:0,pxmart:0,other:0,extra:0};
   for(const[k,v]of Object.entries(shopData)){
     if(!v.buy)continue;
     const p=parseFloat(v.price)||0;
+    if(k.startsWith('x:')){storeTotals.extra+=p;continue;}
     const s=v.store||'other';
     if(storeTotals[s]!==undefined)storeTotals[s]+=p;else storeTotals.other+=p;
   }
-  const total=storeTotals.market+storeTotals.pxmart+storeTotals.other;
-  const stLabels={market:'市場',pxmart:'全聯',other:'未指定'};
-  ['market','pxmart','other'].forEach(s=>{
+  const total=storeTotals.market+storeTotals.pxmart+storeTotals.other+storeTotals.extra;
+  const stLabels={market:'市場',pxmart:'全聯',other:'未指定',extra:'額外'};
+  ['market','pxmart','other','extra'].forEach(s=>{
     const el=document.getElementById('subtotal-'+s);if(el)el.textContent='小計 $'+storeTotals[s];
     const gt=document.getElementById('gt-'+s);if(gt)gt.textContent=stLabels[s]+' $'+storeTotals[s];
   });
@@ -964,17 +991,18 @@ function copyShoppingList(){
   const shopData=getShopData();
   const wend=new Date(shopWeekStart);wend.setDate(wend.getDate()+6);
   let text=`購物清單 ${fmtDate(shopWeekStart)}-${fmtDate(wend)}\n${'='.repeat(30)}\n`;
-  const storeItems={market:[],pxmart:[],other:[]};
-  const storeLabels={market:'市場',pxmart:'全聯',other:'未指定場所'};
+  const storeItems={market:[],pxmart:[],other:[],extra:[]};
+  const storeLabels={market:'市場',pxmart:'全聯',other:'未指定場所',extra:'額外購買'};
   for(const[k,v]of Object.entries(shopData)){
     if(!v.buy)continue;
     const name=k.substring(2);
     const line=`[ ] ${name}${v.buyQty?' ('+v.buyQty+')':''}`;
+    if(k.startsWith('x:')){storeItems.extra.push(line);continue;}
     const s=v.store||'other';
     if(storeItems[s])storeItems[s].push(line);else storeItems.other.push(line);
   }
   let hasAny=false;
-  ['market','pxmart','other'].forEach(s=>{
+  ['market','pxmart','other','extra'].forEach(s=>{
     if(!storeItems[s].length)return;hasAny=true;
     text+=`\n${storeLabels[s]}\n${storeItems[s].sort().join('\n')}\n`;
   });
