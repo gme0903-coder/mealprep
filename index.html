@@ -471,6 +471,7 @@ let pickerCat = null;
 let syncCode = localStorage.getItem('mp_sync_code') || '';
 let unsubscribe = null;
 let saving = false;
+let shopLists = {}; // cloud-synced shopping data keyed by weekKey
 
 // ========== UTILS ==========
 function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,8);}
@@ -507,7 +508,7 @@ function aggregateAmounts(amounts){
 function docRef(){return db.collection('mealprep').doc(syncCode);}
 function saveToCloud(){
   if(!syncCode||saving)return;saving=true;
-  docRef().set({recipes,weekPlans,categories,condiments,updatedAt:firebase.firestore.FieldValue.serverTimestamp()})
+  docRef().set({recipes,weekPlans,categories,condiments,shopLists,updatedAt:firebase.firestore.FieldValue.serverTimestamp()})
     .then(()=>{saving=false;setSyncStatus(true);}).catch(e=>{saving=false;console.error('Save error:',e);setSyncStatus(false);});
 }
 function listenToCloud(){
@@ -518,6 +519,7 @@ function listenToCloud(){
     recipes=data.recipes||[];weekPlans=data.weekPlans||{};
     categories=data.categories||JSON.parse(JSON.stringify(DEFAULT_CATEGORIES));
     condiments=data.condiments||[...DEFAULT_CONDIMENTS];
+    shopLists=data.shopLists||{};
     setSyncStatus(true);refreshCurrentPage();
   },err=>{console.error('Listen error:',err);setSyncStatus(false);});
 }
@@ -544,10 +546,28 @@ function disconnectSync(){
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.getElementById('page-sync').classList.add('active');document.getElementById('sync-code-input').value='';
 }
+function migrateLocalShopData(){
+  // One-time migration: move localStorage shopping data to Firestore
+  const migrated=localStorage.getItem('mp_shop_migrated');
+  if(migrated)return;
+  let found=false;
+  for(let i=0;i<localStorage.length;i++){
+    const key=localStorage.key(i);
+    if(key&&key.startsWith('mp_shopdata_')){
+      const wk=key.replace('mp_shopdata_','');
+      try{const data=JSON.parse(localStorage.getItem(key));if(data&&Object.keys(data).length){if(!shopLists[wk])shopLists[wk]=data;found=true;}}catch(e){}
+    }
+  }
+  if(found)saveToCloud();
+  localStorage.setItem('mp_shop_migrated','1');
+}
 function enterApp(){
   document.getElementById('page-sync').classList.remove('active');
   document.getElementById('nav-tabs').style.display='flex';document.getElementById('nav-menu-wrap').style.display='';
-  listenToCloud();showPage('recipes');
+  listenToCloud();
+  // Wait for first snapshot to load, then migrate local data if needed
+  setTimeout(migrateLocalShopData,2000);
+  showPage('recipes');
 }
 function refreshCurrentPage(){
   const active=document.querySelector('.page.active:not(#page-sync)');if(!active)return;
@@ -804,13 +824,17 @@ function renderPicker(){
 }
 function pickRecipe(id){if(!pickerDay)return;const day=getDayPlan(pickerDay.wk,pickerDay.dk);if(!day[pickerDay.slot])day[pickerDay.slot]=[];day[pickerDay.slot].push(id);saveToCloud();closeModal('modal-picker');renderPlanner();}
 
-// ========== SHOPPING DATA (localStorage) ==========
-function shopDataKey(){return'mp_shopdata_'+weekKey(shopWeekStart);}
-function getShopData(){try{return JSON.parse(localStorage.getItem(shopDataKey()))||{};}catch(e){return{};}}
+// ========== SHOPPING DATA (Firestore + localStorage cache) ==========
+function shopDataKey(){return weekKey(shopWeekStart);}
+function getShopData(){return shopLists[shopDataKey()]||{};}
+function saveShopData(data){
+  shopLists[shopDataKey()]=data;
+  saveToCloud();
+}
 function saveShopField(itemKey,field,value){
   const data=getShopData();if(!data[itemKey])data[itemKey]={};
   data[itemKey][field]=value;
-  localStorage.setItem(shopDataKey(),JSON.stringify(data));
+  saveShopData(data);
   recalcTotals();
 }
 
@@ -926,13 +950,13 @@ function esc4attr(s){return s.replace(/'/g,"\\'").replace(/"/g,'&quot;');}
 function saveBuyQty(sk,val){
   const data=getShopData();if(!data[sk])data[sk]={};
   data[sk].buyQty=val;
-  localStorage.setItem(shopDataKey(),JSON.stringify(data));
+  saveShopData(data);
 }
 
 function saveBuyStore(sk,val){
   const data=getShopData();if(!data[sk])data[sk]={};
   data[sk].store=val;
-  localStorage.setItem(shopDataKey(),JSON.stringify(data));
+  saveShopData(data);
   // Re-render if already in final list to update grouping
   if(data[sk].buy)renderShopping();
 }
@@ -941,7 +965,7 @@ function toggleBuy(sk){
   const data=getShopData();if(!data[sk])data[sk]={};
   data[sk].buy=!data[sk].buy;
   if(!data[sk].buy){data[sk].checked=false;data[sk].price='';data[sk].store='';}
-  localStorage.setItem(shopDataKey(),JSON.stringify(data));
+  saveShopData(data);
   renderShopping();
 }
 
@@ -949,7 +973,7 @@ function removeBuy(sk){
   const data=getShopData();
   if(sk.startsWith('x:')){delete data[sk];}
   else if(data[sk]){data[sk].buy=false;data[sk].checked=false;data[sk].price='';data[sk].store='';}
-  localStorage.setItem(shopDataKey(),JSON.stringify(data));
+  saveShopData(data);
   renderShopping();
 }
 
@@ -963,7 +987,7 @@ function addExtraItem(){
   const sk='x:'+name;
   if(data[sk]&&data[sk].buy){alert('「'+name+'」已存在於額外購買清單中');return;}
   data[sk]={buy:true,buyQty:qty,store:'',checked:false,price:''};
-  localStorage.setItem(shopDataKey(),JSON.stringify(data));
+  saveShopData(data);
   renderShopping();
 }
 
