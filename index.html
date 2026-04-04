@@ -1008,12 +1008,44 @@ function addExtraItem(){
 
 // ========== DRAG & DROP (Final Purchase List) ==========
 let dragSrcSk=null;
+let touchDragSk=null;
+let touchDragEl=null;
+
+function clearDndState(container){
+  container.querySelectorAll('.shop-final-item').forEach(el=>el.classList.remove('dragging','drag-above','drag-below'));
+  container.querySelectorAll('.shop-final-dropzone').forEach(el=>el.classList.remove('drop-active'));
+}
+function updateDndIndicator(container,clientX,clientY,srcSk){
+  clearDndState(container);
+  const item=document.elementFromPoint(clientX,clientY)?.closest('.shop-final-item[data-sk]');
+  if(item&&item.dataset.sk!==srcSk){
+    const mid=item.getBoundingClientRect().top+item.offsetHeight/2;
+    item.classList.add(clientY<mid?'drag-above':'drag-below');
+  }else{
+    const zone=document.elementFromPoint(clientX,clientY)?.closest('.shop-final-dropzone[data-store]');
+    if(zone)zone.classList.add('drop-active');
+  }
+}
+function commitDrop(container,clientX,clientY,srcSk){
+  clearDndState(container);
+  const under=document.elementFromPoint(clientX,clientY);
+  const item=under?.closest('.shop-final-item[data-sk]');
+  if(item&&item.dataset.sk!==srcSk){
+    const mid=item.getBoundingClientRect().top+item.offsetHeight/2;
+    const zone=item.closest('.shop-final-dropzone[data-store]');
+    applyDrop(srcSk,zone?zone.dataset.store:'extra',item.dataset.sk,clientY<mid);
+  }else{
+    const zone=under?.closest('.shop-final-dropzone[data-store]');
+    if(zone)applyDrop(srcSk,zone.dataset.store||'extra',null,false);
+  }
+}
 
 function initDragDrop(){
   const container=document.getElementById('shop-content');
   if(container._dndInit)return;
   container._dndInit=true;
 
+  // ── Mouse / Desktop DnD ──
   container.addEventListener('dragstart',e=>{
     const item=e.target.closest('.shop-final-item[data-sk]');
     if(!item)return;
@@ -1021,40 +1053,58 @@ function initDragDrop(){
     item.classList.add('dragging');
     e.dataTransfer.effectAllowed='move';
   });
-
   container.addEventListener('dragend',()=>{
-    container.querySelectorAll('.shop-final-item').forEach(el=>el.classList.remove('dragging','drag-above','drag-below'));
-    container.querySelectorAll('.shop-final-dropzone').forEach(el=>el.classList.remove('drop-active'));
+    clearDndState(container);
     dragSrcSk=null;
   });
-
   container.addEventListener('dragover',e=>{
     if(!dragSrcSk)return;
     e.preventDefault();
-    const item=e.target.closest('.shop-final-item[data-sk]');
-    container.querySelectorAll('.shop-final-item').forEach(el=>el.classList.remove('drag-above','drag-below'));
-    container.querySelectorAll('.shop-final-dropzone').forEach(el=>el.classList.remove('drop-active'));
-    if(item&&item.dataset.sk!==dragSrcSk){
-      const mid=item.getBoundingClientRect().top+item.offsetHeight/2;
-      item.classList.add(e.clientY<mid?'drag-above':'drag-below');
-    }else{
-      const zone=e.target.closest('.shop-final-dropzone[data-store]');
-      if(zone)zone.classList.add('drop-active');
-    }
+    updateDndIndicator(container,e.clientX,e.clientY,dragSrcSk);
   });
-
   container.addEventListener('drop',e=>{
     e.preventDefault();
     if(!dragSrcSk)return;
-    const item=e.target.closest('.shop-final-item[data-sk]');
-    if(item&&item.dataset.sk!==dragSrcSk){
-      const above=item.classList.contains('drag-above');
-      const zone=item.closest('.shop-final-dropzone[data-store]');
-      applyDrop(dragSrcSk,zone?zone.dataset.store:'extra',item.dataset.sk,above);
-    }else{
-      const zone=e.target.closest('.shop-final-dropzone[data-store]');
-      if(zone)applyDrop(dragSrcSk,zone.dataset.store||'extra',null,false);
-    }
+    const sk=dragSrcSk;dragSrcSk=null;
+    commitDrop(container,e.clientX,e.clientY,sk);
+  });
+
+  // ── Touch / Mobile DnD ──
+  container.addEventListener('touchstart',e=>{
+    const handle=e.target.closest('.drag-handle');
+    if(!handle)return;
+    const item=handle.closest('.shop-final-item[data-sk]');
+    if(!item)return;
+    e.preventDefault();
+    touchDragSk=item.dataset.sk;
+    touchDragEl=item;
+    item.classList.add('dragging');
+  },{passive:false});
+
+  container.addEventListener('touchmove',e=>{
+    if(!touchDragSk)return;
+    e.preventDefault();
+    const t=e.touches[0];
+    touchDragEl.style.pointerEvents='none';
+    updateDndIndicator(container,t.clientX,t.clientY,touchDragSk);
+    touchDragEl.style.pointerEvents='';
+  },{passive:false});
+
+  container.addEventListener('touchend',e=>{
+    if(!touchDragSk)return;
+    const t=e.changedTouches[0];
+    touchDragEl.style.pointerEvents='none';
+    const sk=touchDragSk;
+    touchDragSk=null;touchDragEl=null;
+    commitDrop(container,t.clientX,t.clientY,sk);
+    // pointerEvents restored after re-render
+  });
+
+  container.addEventListener('touchcancel',()=>{
+    if(!touchDragSk)return;
+    clearDndState(container);
+    if(touchDragEl)touchDragEl.style.pointerEvents='';
+    touchDragSk=null;touchDragEl=null;
   });
 }
 
