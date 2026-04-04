@@ -228,7 +228,15 @@ nav .tabs button.active,nav .tabs button:hover{background:rgba(255,255,255,.2);c
 .ai-key-bar .btn{flex-shrink:0;}
 .ai-change-key{font-size:12px;color:var(--primary);cursor:pointer;text-decoration:underline;margin-top:4px;}
 
-@media print{nav,.nav-menu-wrap,.btn,.add-meal-btn,.remove-meal,.shop-week-nav,.shop-input-group,.shop-price-group,.btn-add-buy,.buy-qty-input,.shop-final-remove{display:none!important;}.page{display:block!important;max-width:100%;}.page:not(.print-target){display:none!important;}.shop-list{box-shadow:none;border:1px solid #ccc;}}
+.drag-handle{color:var(--text-light);cursor:grab;user-select:none;padding:0 4px;font-size:18px;flex-shrink:0;line-height:1;transition:color .15s;}
+.drag-handle:hover{color:var(--primary);}
+.shop-final-item.dragging{opacity:.3;background:#f5f5f5;}
+.shop-final-item.drag-above{box-shadow:inset 0 2px 0 var(--primary);}
+.shop-final-item.drag-below{box-shadow:inset 0 -2px 0 var(--primary);}
+.shop-final-dropzone{transition:background .15s;}
+.shop-final-dropzone.drop-active{background:rgba(101,163,213,.08);}
+.shop-final-dropzone-hint{padding:10px 16px;text-align:center;color:var(--text-light);font-size:12px;border:2px dashed var(--border);border-radius:8px;margin:8px 12px;}
+@media print{nav,.nav-menu-wrap,.btn,.add-meal-btn,.remove-meal,.shop-week-nav,.shop-input-group,.shop-price-group,.btn-add-buy,.buy-qty-input,.shop-final-remove,.drag-handle{display:none!important;}.page{display:block!important;max-width:100%;}.page:not(.print-target){display:none!important;}.shop-list{box-shadow:none;border:1px solid #ccc;}}
 </style>
 </head>
 <body>
@@ -244,7 +252,7 @@ nav .tabs button.active,nav .tabs button:hover{background:rgba(255,255,255,.2);c
   <div class="nav-menu-wrap" id="nav-menu-wrap" style="display:none;">
     <button class="nav-menu-btn" onclick="toggleNavMenu()" title="選單">&#9776;</button>
     <div class="nav-dropdown" id="nav-dropdown">
-      <button onclick="exportData();closeNavMenu()">匯出資料</button>
+      <button onclick="exportData();closeNavMenu()">匯出購物清單</button>
       <button onclick="document.getElementById('import-file').click();closeNavMenu()">匯入資料</button>
       <button onclick="disconnectSync();closeNavMenu()">登出</button>
     </div>
@@ -918,24 +926,30 @@ function renderShopping(){
     html+='<div class="shop-list"><div class="shop-final-empty">尚未加入任何項目。<br>請從上方菜單匯整中選取需要購買的食材，或手動加入額外購買項目。</div></div>';
   } else {
     const storeGroups={market:[],pxmart:[],other:[],extra:[]};
-    allBuyKeys.forEach(sk=>{const sd=shopData[sk]||{};const s=sd.store||'other';if(storeGroups[s])storeGroups[s].push(sk);else storeGroups.other.push(sk);});
-    extraKeys.forEach(sk=>storeGroups.extra.push(sk));
+    allKeys.forEach(sk=>{const sd=shopData[sk]||{};const def=sk.startsWith('x:')?'extra':'other';const s=sd.store&&storeGroups[sd.store]!==undefined?sd.store:def;storeGroups[s].push(sk);});
+    const finalOrder=shopData._finalOrder||[];
+    Object.keys(storeGroups).forEach(s=>storeGroups[s].sort((a,b)=>{const ai=finalOrder.indexOf(a),bi=finalOrder.indexOf(b);if(ai===-1&&bi===-1)return 0;if(ai===-1)return 1;if(bi===-1)return-1;return ai-bi;}));
     const storeLabels={market:'市場',pxmart:'全聯',other:'未指定場所',extra:'額外購買'};
     const storeOrder=['market','pxmart','other','extra'];
     storeOrder.forEach(storeKey=>{
-      const items=storeGroups[storeKey];if(!items.length)return;
-      html+=`<div class="shop-list"><div class="shop-section-title"><span>${storeLabels[storeKey]}</span><span class="subtotal" id="subtotal-${storeKey}"></span></div>`;
-      html+=items.map(sk=>{
-        const sd=shopData[sk]||{};const ic=sd.checked||false;
-        const name=sk.substring(2);const isIng=sk.startsWith('i:');
-        return`<div class="shop-final-item ${ic?'checked':''}">
-          <input type="checkbox" ${ic?'checked':''} onchange="saveShopField('${esc4attr(sk)}','checked',this.checked);this.parentElement.classList.toggle('checked',this.checked)">
-          <div class="final-item-info"><span class="final-item-name">${esc(name)}</span></div>
-          ${sd.buyQty?'<span class="final-item-qty" style="color:var(--text-light);font-size:13px;flex-shrink:0;">'+esc(sd.buyQty)+'</span>':''}
-          <div class="shop-price-group"><span>$</span><input class="shop-input shop-price" type="number" min="0" placeholder="0" value="${sd.price||''}" onchange="saveShopField('${esc4attr(sk)}','price',this.value)"></div>
-          <button class="shop-final-remove" onclick="removeBuy('${esc4attr(sk)}')" title="移除">\u2715</button>
-        </div>`;
-      }).join('');
+      const items=storeGroups[storeKey];
+      html+=`<div class="shop-list shop-final-dropzone" data-store="${storeKey}"><div class="shop-section-title"><span>${storeLabels[storeKey]}</span><span class="subtotal" id="subtotal-${storeKey}"></span></div>`;
+      if(items.length){
+        html+=items.map(sk=>{
+          const sd=shopData[sk]||{};const ic=sd.checked||false;
+          const name=sk.substring(2);
+          return`<div class="shop-final-item ${ic?'checked':''}" draggable="true" data-sk="${esc4attr(sk)}">
+            <span class="drag-handle" title="拖曳排序">⠿</span>
+            <input type="checkbox" ${ic?'checked':''} onchange="saveShopField('${esc4attr(sk)}','checked',this.checked);this.parentElement.classList.toggle('checked',this.checked)">
+            <div class="final-item-info"><span class="final-item-name">${esc(name)}</span></div>
+            ${sd.buyQty?'<span class="final-item-qty" style="color:var(--text-light);font-size:13px;flex-shrink:0;">'+esc(sd.buyQty)+'</span>':''}
+            <div class="shop-price-group"><span>$</span><input class="shop-input shop-price" type="number" min="0" placeholder="0" value="${sd.price||''}" onchange="saveShopField('${esc4attr(sk)}','price',this.value)"></div>
+            <button class="shop-final-remove" onclick="removeBuy('${esc4attr(sk)}')" title="移除">\u2715</button>
+          </div>`;
+        }).join('');
+      } else {
+        html+='<div class="shop-final-dropzone-hint">可拖曳項目至此區</div>';
+      }
       html+='</div>';
     });
     html+='<div class="shop-grand-total"><span class="gt-item" id="gt-market"></span><span class="gt-item" id="gt-pxmart"></span><span class="gt-item" id="gt-other"></span><span class="gt-item" id="gt-extra"></span><span class="gt-total" id="gt-total"></span></div>';
@@ -943,6 +957,7 @@ function renderShopping(){
 
   container.innerHTML=html;
   recalcTotals();
+  initDragDrop();
 }
 
 function esc4attr(s){return s.replace(/'/g,"\\'").replace(/"/g,'&quot;');}
@@ -991,15 +1006,91 @@ function addExtraItem(){
   renderShopping();
 }
 
+// ========== DRAG & DROP (Final Purchase List) ==========
+let dragSrcSk=null;
+
+function initDragDrop(){
+  document.querySelectorAll('.shop-final-item[data-sk]').forEach(el=>{
+    el.addEventListener('dragstart',onFinalDragStart);
+    el.addEventListener('dragend',onFinalDragEnd);
+    el.addEventListener('dragover',onFinalItemDragOver);
+    el.addEventListener('dragleave',onFinalItemDragLeave);
+    el.addEventListener('drop',onFinalItemDrop);
+  });
+  document.querySelectorAll('.shop-final-dropzone').forEach(el=>{
+    el.addEventListener('dragover',onFinalZoneDragOver);
+    el.addEventListener('dragleave',onFinalZoneDragLeave);
+    el.addEventListener('drop',onFinalZoneDrop);
+  });
+}
+function onFinalDragStart(e){
+  dragSrcSk=this.dataset.sk;
+  this.classList.add('dragging');
+  e.dataTransfer.effectAllowed='move';
+}
+function onFinalDragEnd(){
+  document.querySelectorAll('.shop-final-item').forEach(el=>el.classList.remove('dragging','drag-above','drag-below'));
+  document.querySelectorAll('.shop-final-dropzone').forEach(el=>el.classList.remove('drop-active'));
+  dragSrcSk=null;
+}
+function onFinalItemDragOver(e){
+  if(!dragSrcSk||this.dataset.sk===dragSrcSk)return;
+  e.preventDefault();e.stopPropagation();
+  document.querySelectorAll('.shop-final-item').forEach(el=>el.classList.remove('drag-above','drag-below'));
+  const mid=this.getBoundingClientRect().top+this.offsetHeight/2;
+  this.classList.add(e.clientY<mid?'drag-above':'drag-below');
+}
+function onFinalItemDragLeave(){this.classList.remove('drag-above','drag-below');}
+function onFinalItemDrop(e){
+  e.preventDefault();e.stopPropagation();
+  if(!dragSrcSk||this.dataset.sk===dragSrcSk)return;
+  const targetSk=this.dataset.sk;
+  const above=this.classList.contains('drag-above');
+  this.classList.remove('drag-above','drag-below');
+  const zone=this.closest('.shop-final-dropzone[data-store]');
+  applyDrop(dragSrcSk,zone?zone.dataset.store:'other',targetSk,above);
+}
+function onFinalZoneDragOver(e){
+  if(!dragSrcSk)return;
+  e.preventDefault();
+  this.classList.add('drop-active');
+}
+function onFinalZoneDragLeave(e){
+  if(!this.contains(e.relatedTarget))this.classList.remove('drop-active');
+}
+function onFinalZoneDrop(e){
+  e.preventDefault();
+  this.classList.remove('drop-active');
+  if(!dragSrcSk)return;
+  applyDrop(dragSrcSk,this.dataset.store||'other',null,false);
+}
+function applyDrop(srcSk,newStore,targetSk,above){
+  const data=getShopData();
+  if(!data[srcSk])data[srcSk]={};
+  data[srcSk].store=newStore;
+  let order=[...(data._finalOrder||[])];
+  order=order.filter(k=>k!==srcSk);
+  if(targetSk){
+    const ti=order.indexOf(targetSk);
+    if(ti===-1)order.push(srcSk);
+    else order.splice(above?ti:ti+1,0,srcSk);
+  }else{
+    order.push(srcSk);
+  }
+  data._finalOrder=order;
+  saveShopData(data);
+  renderShopping();
+}
+
 function recalcTotals(){
   const shopData=getShopData();
   const storeTotals={market:0,pxmart:0,other:0,extra:0};
   for(const[k,v]of Object.entries(shopData)){
-    if(!v.buy)continue;
+    if(k.startsWith('_')||!v||!v.buy)continue;
     const p=parseFloat(v.price)||0;
-    if(k.startsWith('x:')){storeTotals.extra+=p;continue;}
-    const s=v.store||'other';
-    if(storeTotals[s]!==undefined)storeTotals[s]+=p;else storeTotals.other+=p;
+    const def=k.startsWith('x:')?'extra':'other';
+    const s=v.store&&storeTotals[v.store]!==undefined?v.store:def;
+    storeTotals[s]+=p;
   }
   const total=storeTotals.market+storeTotals.pxmart+storeTotals.other+storeTotals.extra;
   const stLabels={market:'市場',pxmart:'全聯',other:'未指定',extra:'額外'};
@@ -1018,12 +1109,12 @@ function copyShoppingList(){
   const storeItems={market:[],pxmart:[],other:[],extra:[]};
   const storeLabels={market:'市場',pxmart:'全聯',other:'未指定場所',extra:'額外購買'};
   for(const[k,v]of Object.entries(shopData)){
-    if(!v.buy)continue;
+    if(k.startsWith('_')||!v||!v.buy)continue;
     const name=k.substring(2);
     const line=`[ ] ${name}${v.buyQty?' ('+v.buyQty+')':''}`;
-    if(k.startsWith('x:')){storeItems.extra.push(line);continue;}
-    const s=v.store||'other';
-    if(storeItems[s])storeItems[s].push(line);else storeItems.other.push(line);
+    const def=k.startsWith('x:')?'extra':'other';
+    const s=v.store&&storeItems[v.store]!==undefined?v.store:def;
+    storeItems[s].push(line);
   }
   let hasAny=false;
   ['market','pxmart','other','extra'].forEach(s=>{
@@ -1036,9 +1127,27 @@ function copyShoppingList(){
 
 // ========== EXPORT/IMPORT ==========
 function exportData(){
-  const data={recipes,weekPlans,categories,condiments,version:3,exportedAt:new Date().toISOString()};
-  const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
-  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`MealPrep_backup_${new Date().toISOString().slice(0,10)}.json`;a.click();
+  const shopData=getShopData();
+  const wend=new Date(shopWeekStart);wend.setDate(wend.getDate()+6);
+  let text=`購物清單 ${fmtDate(shopWeekStart)}-${fmtDate(wend)}\n${'='.repeat(30)}\n`;
+  const storeItems={market:[],pxmart:[],other:[],extra:[]};
+  const storeLabels={market:'市場',pxmart:'全聯',other:'未指定場所',extra:'額外購買'};
+  for(const[k,v]of Object.entries(shopData)){
+    if(k.startsWith('_')||!v||!v.buy)continue;
+    const name=k.substring(2);
+    const line=`${name}${v.buyQty?' ('+v.buyQty+')':''}`;
+    const def=k.startsWith('x:')?'extra':'other';
+    const s=v.store&&storeItems[v.store]!==undefined?v.store:def;
+    storeItems[s].push(line);
+  }
+  let hasAny=false;
+  ['market','pxmart','other','extra'].forEach(s=>{
+    if(!storeItems[s].length)return;hasAny=true;
+    text+=`\n【${storeLabels[s]}】\n${storeItems[s].sort().join('\n')}\n`;
+  });
+  if(!hasAny)text+='\n（尚未加入任何購買項目）';
+  const blob=new Blob([text],{type:'text/plain;charset=utf-8'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`購物清單_${new Date().toISOString().slice(0,10)}.txt`;a.click();
 }
 function importData(event){
   const file=event.target.files[0];if(!file)return;
