@@ -925,12 +925,12 @@ function renderShopping(){
   if(!allKeys.length){
     html+='<div class="shop-list"><div class="shop-final-empty">尚未加入任何項目。<br>請從上方菜單匯整中選取需要購買的食材，或手動加入額外購買項目。</div></div>';
   } else {
-    const storeGroups={market:[],pxmart:[],other:[],extra:[]};
-    allKeys.forEach(sk=>{const sd=shopData[sk]||{};const def=sk.startsWith('x:')?'extra':'other';const s=sd.store&&storeGroups[sd.store]!==undefined?sd.store:def;storeGroups[s].push(sk);});
+    const storeGroups={market:[],pxmart:[],extra:[]};
+    allKeys.forEach(sk=>{const sd=shopData[sk]||{};const s=sd.store&&storeGroups[sd.store]!==undefined?sd.store:'extra';storeGroups[s].push(sk);});
     const finalOrder=shopData._finalOrder||[];
     Object.keys(storeGroups).forEach(s=>storeGroups[s].sort((a,b)=>{const ai=finalOrder.indexOf(a),bi=finalOrder.indexOf(b);if(ai===-1&&bi===-1)return 0;if(ai===-1)return 1;if(bi===-1)return-1;return ai-bi;}));
-    const storeLabels={market:'市場',pxmart:'全聯',other:'未指定場所',extra:'額外購買'};
-    const storeOrder=['market','pxmart','other','extra'];
+    const storeLabels={market:'市場',pxmart:'全聯',extra:'額外購買'};
+    const storeOrder=['market','pxmart','extra'];
     storeOrder.forEach(storeKey=>{
       const items=storeGroups[storeKey];
       html+=`<div class="shop-list shop-final-dropzone" data-store="${storeKey}"><div class="shop-section-title"><span>${storeLabels[storeKey]}</span><span class="subtotal" id="subtotal-${storeKey}"></span></div>`;
@@ -952,7 +952,7 @@ function renderShopping(){
       }
       html+='</div>';
     });
-    html+='<div class="shop-grand-total"><span class="gt-item" id="gt-market"></span><span class="gt-item" id="gt-pxmart"></span><span class="gt-item" id="gt-other"></span><span class="gt-item" id="gt-extra"></span><span class="gt-total" id="gt-total"></span></div>';
+    html+='<div class="shop-grand-total"><span class="gt-item" id="gt-market"></span><span class="gt-item" id="gt-pxmart"></span><span class="gt-item" id="gt-extra"></span><span class="gt-total" id="gt-total"></span></div>';
   }
 
   container.innerHTML=html;
@@ -1034,8 +1034,8 @@ function onFinalDragEnd(){
   dragSrcSk=null;
 }
 function onFinalItemDragOver(e){
-  if(!dragSrcSk||this.dataset.sk===dragSrcSk)return;
   e.preventDefault();e.stopPropagation();
+  if(!dragSrcSk||this.dataset.sk===dragSrcSk)return;
   document.querySelectorAll('.shop-final-item').forEach(el=>el.classList.remove('drag-above','drag-below'));
   const mid=this.getBoundingClientRect().top+this.offsetHeight/2;
   this.classList.add(e.clientY<mid?'drag-above':'drag-below');
@@ -1048,7 +1048,7 @@ function onFinalItemDrop(e){
   const above=this.classList.contains('drag-above');
   this.classList.remove('drag-above','drag-below');
   const zone=this.closest('.shop-final-dropzone[data-store]');
-  applyDrop(dragSrcSk,zone?zone.dataset.store:'other',targetSk,above);
+  applyDrop(dragSrcSk,zone?zone.dataset.store:'extra',targetSk,above);
 }
 function onFinalZoneDragOver(e){
   if(!dragSrcSk)return;
@@ -1084,17 +1084,16 @@ function applyDrop(srcSk,newStore,targetSk,above){
 
 function recalcTotals(){
   const shopData=getShopData();
-  const storeTotals={market:0,pxmart:0,other:0,extra:0};
+  const storeTotals={market:0,pxmart:0,extra:0};
   for(const[k,v]of Object.entries(shopData)){
     if(k.startsWith('_')||!v||!v.buy)continue;
     const p=parseFloat(v.price)||0;
-    const def=k.startsWith('x:')?'extra':'other';
-    const s=v.store&&storeTotals[v.store]!==undefined?v.store:def;
+    const s=v.store&&storeTotals[v.store]!==undefined?v.store:'extra';
     storeTotals[s]+=p;
   }
-  const total=storeTotals.market+storeTotals.pxmart+storeTotals.other+storeTotals.extra;
-  const stLabels={market:'市場',pxmart:'全聯',other:'未指定',extra:'額外'};
-  ['market','pxmart','other','extra'].forEach(s=>{
+  const total=storeTotals.market+storeTotals.pxmart+storeTotals.extra;
+  const stLabels={market:'市場',pxmart:'全聯',extra:'額外'};
+  ['market','pxmart','extra'].forEach(s=>{
     const el=document.getElementById('subtotal-'+s);if(el)el.textContent='小計 $'+storeTotals[s];
     const gt=document.getElementById('gt-'+s);if(gt)gt.textContent=stLabels[s]+' $'+storeTotals[s];
   });
@@ -1106,18 +1105,17 @@ function copyShoppingList(){
   const shopData=getShopData();
   const wend=new Date(shopWeekStart);wend.setDate(wend.getDate()+6);
   let text=`購物清單 ${fmtDate(shopWeekStart)}-${fmtDate(wend)}\n${'='.repeat(30)}\n`;
-  const storeItems={market:[],pxmart:[],other:[],extra:[]};
-  const storeLabels={market:'市場',pxmart:'全聯',other:'未指定場所',extra:'額外購買'};
+  const storeItems={market:[],pxmart:[],extra:[]};
+  const storeLabels={market:'市場',pxmart:'全聯',extra:'額外購買'};
   for(const[k,v]of Object.entries(shopData)){
     if(k.startsWith('_')||!v||!v.buy)continue;
     const name=k.substring(2);
     const line=`[ ] ${name}${v.buyQty?' ('+v.buyQty+')':''}`;
-    const def=k.startsWith('x:')?'extra':'other';
-    const s=v.store&&storeItems[v.store]!==undefined?v.store:def;
+    const s=v.store&&storeItems[v.store]!==undefined?v.store:'extra';
     storeItems[s].push(line);
   }
   let hasAny=false;
-  ['market','pxmart','other','extra'].forEach(s=>{
+  ['market','pxmart','extra'].forEach(s=>{
     if(!storeItems[s].length)return;hasAny=true;
     text+=`\n${storeLabels[s]}\n${storeItems[s].sort().join('\n')}\n`;
   });
@@ -1130,18 +1128,17 @@ function exportData(){
   const shopData=getShopData();
   const wend=new Date(shopWeekStart);wend.setDate(wend.getDate()+6);
   let text=`購物清單 ${fmtDate(shopWeekStart)}-${fmtDate(wend)}\n${'='.repeat(30)}\n`;
-  const storeItems={market:[],pxmart:[],other:[],extra:[]};
-  const storeLabels={market:'市場',pxmart:'全聯',other:'未指定場所',extra:'額外購買'};
+  const storeItems={market:[],pxmart:[],extra:[]};
+  const storeLabels={market:'市場',pxmart:'全聯',extra:'額外購買'};
   for(const[k,v]of Object.entries(shopData)){
     if(k.startsWith('_')||!v||!v.buy)continue;
     const name=k.substring(2);
     const line=`${name}${v.buyQty?' ('+v.buyQty+')':''}`;
-    const def=k.startsWith('x:')?'extra':'other';
-    const s=v.store&&storeItems[v.store]!==undefined?v.store:def;
+    const s=v.store&&storeItems[v.store]!==undefined?v.store:'extra';
     storeItems[s].push(line);
   }
   let hasAny=false;
-  ['market','pxmart','other','extra'].forEach(s=>{
+  ['market','pxmart','extra'].forEach(s=>{
     if(!storeItems[s].length)return;hasAny=true;
     text+=`\n【${storeLabels[s]}】\n${storeItems[s].sort().join('\n')}\n`;
   });
