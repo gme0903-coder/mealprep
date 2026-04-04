@@ -1010,66 +1010,61 @@ function addExtraItem(){
 let dragSrcSk=null;
 
 function initDragDrop(){
-  document.querySelectorAll('.shop-final-item[data-sk]').forEach(el=>{
-    el.addEventListener('dragstart',onFinalDragStart);
-    el.addEventListener('dragend',onFinalDragEnd);
-    el.addEventListener('dragover',onFinalItemDragOver);
-    el.addEventListener('dragleave',onFinalItemDragLeave);
-    el.addEventListener('drop',onFinalItemDrop);
+  const container=document.getElementById('shop-content');
+  if(container._dndInit)return;
+  container._dndInit=true;
+
+  container.addEventListener('dragstart',e=>{
+    const item=e.target.closest('.shop-final-item[data-sk]');
+    if(!item)return;
+    dragSrcSk=item.dataset.sk;
+    item.classList.add('dragging');
+    e.dataTransfer.effectAllowed='move';
   });
-  document.querySelectorAll('.shop-final-dropzone').forEach(el=>{
-    el.addEventListener('dragover',onFinalZoneDragOver);
-    el.addEventListener('dragleave',onFinalZoneDragLeave);
-    el.addEventListener('drop',onFinalZoneDrop);
+
+  container.addEventListener('dragend',()=>{
+    container.querySelectorAll('.shop-final-item').forEach(el=>el.classList.remove('dragging','drag-above','drag-below'));
+    container.querySelectorAll('.shop-final-dropzone').forEach(el=>el.classList.remove('drop-active'));
+    dragSrcSk=null;
+  });
+
+  container.addEventListener('dragover',e=>{
+    if(!dragSrcSk)return;
+    e.preventDefault();
+    const item=e.target.closest('.shop-final-item[data-sk]');
+    container.querySelectorAll('.shop-final-item').forEach(el=>el.classList.remove('drag-above','drag-below'));
+    container.querySelectorAll('.shop-final-dropzone').forEach(el=>el.classList.remove('drop-active'));
+    if(item&&item.dataset.sk!==dragSrcSk){
+      const mid=item.getBoundingClientRect().top+item.offsetHeight/2;
+      item.classList.add(e.clientY<mid?'drag-above':'drag-below');
+    }else{
+      const zone=e.target.closest('.shop-final-dropzone[data-store]');
+      if(zone)zone.classList.add('drop-active');
+    }
+  });
+
+  container.addEventListener('drop',e=>{
+    e.preventDefault();
+    if(!dragSrcSk)return;
+    const item=e.target.closest('.shop-final-item[data-sk]');
+    if(item&&item.dataset.sk!==dragSrcSk){
+      const above=item.classList.contains('drag-above');
+      const zone=item.closest('.shop-final-dropzone[data-store]');
+      applyDrop(dragSrcSk,zone?zone.dataset.store:'extra',item.dataset.sk,above);
+    }else{
+      const zone=e.target.closest('.shop-final-dropzone[data-store]');
+      if(zone)applyDrop(dragSrcSk,zone.dataset.store||'extra',null,false);
+    }
   });
 }
-function onFinalDragStart(e){
-  dragSrcSk=this.dataset.sk;
-  this.classList.add('dragging');
-  e.dataTransfer.effectAllowed='move';
-}
-function onFinalDragEnd(){
-  document.querySelectorAll('.shop-final-item').forEach(el=>el.classList.remove('dragging','drag-above','drag-below'));
-  document.querySelectorAll('.shop-final-dropzone').forEach(el=>el.classList.remove('drop-active'));
-  dragSrcSk=null;
-}
-function onFinalItemDragOver(e){
-  e.preventDefault();e.stopPropagation();
-  if(!dragSrcSk||this.dataset.sk===dragSrcSk)return;
-  document.querySelectorAll('.shop-final-item').forEach(el=>el.classList.remove('drag-above','drag-below'));
-  const mid=this.getBoundingClientRect().top+this.offsetHeight/2;
-  this.classList.add(e.clientY<mid?'drag-above':'drag-below');
-}
-function onFinalItemDragLeave(){this.classList.remove('drag-above','drag-below');}
-function onFinalItemDrop(e){
-  e.preventDefault();e.stopPropagation();
-  if(!dragSrcSk||this.dataset.sk===dragSrcSk)return;
-  const targetSk=this.dataset.sk;
-  const above=this.classList.contains('drag-above');
-  this.classList.remove('drag-above','drag-below');
-  const zone=this.closest('.shop-final-dropzone[data-store]');
-  applyDrop(dragSrcSk,zone?zone.dataset.store:'extra',targetSk,above);
-}
-function onFinalZoneDragOver(e){
-  if(!dragSrcSk)return;
-  e.preventDefault();
-  this.classList.add('drop-active');
-}
-function onFinalZoneDragLeave(e){
-  if(!this.contains(e.relatedTarget))this.classList.remove('drop-active');
-}
-function onFinalZoneDrop(e){
-  e.preventDefault();
-  this.classList.remove('drop-active');
-  if(!dragSrcSk)return;
-  applyDrop(dragSrcSk,this.dataset.store||'other',null,false);
-}
+
 function applyDrop(srcSk,newStore,targetSk,above){
   const data=getShopData();
   if(!data[srcSk])data[srcSk]={};
   data[srcSk].store=newStore;
-  let order=[...(data._finalOrder||[])];
-  order=order.filter(k=>k!==srcSk);
+  // Build full key list from current rendered order to preserve positions
+  const allRendered=[...document.querySelectorAll('.shop-final-item[data-sk]')].map(el=>el.dataset.sk);
+  let order=allRendered.filter(k=>k!==srcSk);
   if(targetSk){
     const ti=order.indexOf(targetSk);
     if(ti===-1)order.push(srcSk);
