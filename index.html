@@ -167,12 +167,12 @@ nav .tabs button.active,nav .tabs button:hover{background:rgba(255,255,255,.2);c
 .btn-add-buy.not-added:hover{background:var(--tag-bg);}
 .btn-add-buy.is-added{background:var(--success);color:#fff;border-color:var(--success);}
 .shop-final-empty{padding:30px;text-align:center;color:var(--text-light);font-size:14px;}
-.shop-final-item{padding:10px 16px;display:flex;align-items:center;gap:10px;border-bottom:1px solid #f0ebe5;font-size:14px;flex-wrap:wrap;}
+.shop-final-item{padding:10px 16px;display:flex;align-items:center;gap:10px;border-bottom:1px solid #f0ebe5;font-size:14px;flex-wrap:nowrap;}
 .shop-final-item:last-child{border-bottom:none;}
 .shop-final-item input[type=checkbox]{width:18px;height:18px;accent-color:var(--primary);cursor:pointer;flex-shrink:0;}
 .shop-final-item.checked .final-item-name{text-decoration:line-through;color:var(--text-light);}
-.shop-final-item .final-item-info{flex:1;min-width:120px;}
-.shop-final-item .final-item-name{font-weight:500;}
+.shop-final-item .final-item-info{flex:1;min-width:0;overflow:hidden;}
+.shop-final-item .final-item-name{font-weight:500;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .shop-final-item .final-item-qty{color:var(--text-light);font-size:13px;}
 .shop-final-remove{background:none;border:none;color:var(--danger);cursor:pointer;font-size:16px;padding:4px;flex-shrink:0;opacity:.6;transition:.2s;}
 .shop-final-remove:hover{opacity:1;}
