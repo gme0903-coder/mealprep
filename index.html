@@ -67,7 +67,17 @@ nav .tabs button.active,nav .tabs button:hover{background:rgba(255,255,255,.2);c
 .cat-filter-btn{padding:6px 14px;border:2px solid var(--border);border-radius:20px;background:none;font-size:13px;cursor:pointer;transition:.2s;font-weight:500;}
 .cat-filter-btn.active{border-color:var(--primary);background:var(--primary);color:#fff;}
 .cat-filter-btn:hover{border-color:var(--primary);}
-.ing-filters{margin-bottom:16px;}.ing-filters-title{font-size:13px;color:var(--text-light);margin-bottom:8px;}
+.ing-filters{margin-bottom:16px;}
+.ing-filters-header{display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none;padding:6px 10px;border:2px solid var(--border);border-radius:20px;width:fit-content;transition:.2s;background:#fff;}
+.ing-filters-header:hover{border-color:var(--primary);color:var(--primary);}
+.ing-filters-header.has-active{border-color:var(--primary);color:var(--primary);}
+.ing-filters-label{font-size:13px;font-weight:500;}
+.ing-filters-badge{font-size:11px;background:var(--primary);color:#fff;border-radius:10px;padding:1px 7px;display:none;}
+.ing-filters-header.has-active .ing-filters-badge{display:inline;}
+.ing-filters-arrow{font-size:11px;color:var(--text-light);transition:transform .25s;}
+.ing-filters-arrow.open{transform:rotate(180deg);}
+.ing-filters-tags{display:none;padding:10px 4px 4px;}
+.ing-filters-tags.open{display:block;}
 .recipe-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;}
 .recipe-card{background:var(--card);border-radius:var(--radius);padding:18px;box-shadow:var(--shadow);cursor:pointer;transition:.2s;border:2px solid transparent;}
 .recipe-card:hover{border-color:var(--primary-light);transform:translateY(-2px);}
@@ -475,6 +485,7 @@ let editingId = null;
 let pickerDay = null;
 let activeCat = null;
 let activeIng = null;
+let ingFiltersOpen = false;
 let pickerCat = null;
 let syncCode = localStorage.getItem('mp_sync_code') || '';
 let unsubscribe = null;
@@ -645,15 +656,31 @@ function addCondRow(name='',amount=''){
 
 // ========== INGREDIENT FILTERS ==========
 function getAllIngredients(){const s=new Set();recipes.forEach(r=>(r.ingredients||[]).forEach(i=>{if(i.name.trim())s.add(i.name.trim());}));return[...s].sort();}
+function toggleIngFilters(){
+  ingFiltersOpen=!ingFiltersOpen;
+  document.getElementById('ing-filters-arrow').classList.toggle('open',ingFiltersOpen);
+  document.getElementById('ing-filters-tags').classList.toggle('open',ingFiltersOpen);
+}
 function renderIngFilters(){
   const el=document.getElementById('ing-filters');const ings=getAllIngredients();
   if(!ings.length){el.innerHTML='';return;}
-  let h='<div class="ing-filters-title">依食材篩選：</div>';
+  const hasActive=!!activeIng;
+  let h=`<div class="ing-filters-header${hasActive?' has-active':''}" onclick="toggleIngFilters()">
+    <span class="ing-filters-label">依食材篩選</span>
+    <span class="ing-filters-badge">${activeIng||''}</span>
+    <span class="ing-filters-arrow${ingFiltersOpen?' open':''}" id="ing-filters-arrow">▼</span>
+  </div>`;
+  h+=`<div class="ing-filters-tags${ingFiltersOpen?' open':''}" id="ing-filters-tags">`;
   ings.forEach(n=>{h+=`<span class="tag tag-ingredient ${activeIng===n?'active':''}" onclick="setIngFilter('${n.replace(/'/g,"\\'")}')">${n}</span>`;});
-  if(activeIng)h+=' <span class="tag" style="background:#eee;color:#666;" onclick="setIngFilter(null)">清除</span>';
+  if(activeIng)h+=' <span class="tag" style="background:#eee;color:#666;" onclick="setIngFilter(null)">✕ 清除篩選</span>';
+  h+='</div>';
   el.innerHTML=h;
 }
-function setIngFilter(v){activeIng=(activeIng===v)?null:v;renderRecipes();}
+function setIngFilter(v){
+  activeIng=(activeIng===v)?null:v;
+  if(activeIng)ingFiltersOpen=true; // 選了食材就保持展開
+  renderRecipes();
+}
 
 // ========== RECIPES PAGE ==========
 function renderRecipes(){
